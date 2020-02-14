@@ -24,6 +24,21 @@ interface WriteablePushStream[W: Any #send]
     for notify in writeSubscribers.values() do
       notify.piped()
     end
+  fun ref _notifyUnpiped() =>
+    let writeSubscribers: MapIs[WriteablePushNotify tag, WriteablePushNotify] = _writeSubscribers()
+    for notify in writeSubscribers.values() do
+      notify.unpiped()
+    end
+  fun ref _notifyUnthrottled() =>
+    let writeSubscribers: MapIs[WriteablePushNotify tag, WriteablePushNotify] = _writeSubscribers()
+    for notify in writeSubscribers.values() do
+      notify.unthrottled()
+    end
+  fun ref _notifyThrottled() =>
+    let writeSubscribers: MapIs[WriteablePushNotify tag, WriteablePushNotify] = _writeSubscribers()
+    for notify in writeSubscribers.values() do
+      notify.throttled()
+    end
   be subscribeWrite(notify: WriteablePushNotify iso) =>
     _subscribeWrite(consume notify)
   be write(data: W) =>
@@ -34,5 +49,11 @@ interface WriteablePushStream[W: Any #send]
     stream.subscribeRead(consume notify')
     _notifyPiped()
   */
+  be unpiped(notify: WriteablePushNotify tag) =>
+    let writeSubscribers: MapIs[WriteablePushNotify tag, WriteablePushNotify] = _writeSubscribers()
+    try
+      writeSubscribers.remove(notify)?
+    end
+
   be destroy(message: String) =>
     _notifyException(message)
