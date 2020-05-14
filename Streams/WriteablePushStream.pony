@@ -14,6 +14,7 @@ interface WriteablePushStream[W: Any #send]
     let writeSubscribers: MapIs[WriteablePushNotify tag, WriteablePushNotify] = _writeSubscribers()
     let notify': WriteablePushNotify ref = consume notify
     writeSubscribers(notify') = notify'
+  fun _destroyed(): Bool  
   fun ref _notifyException(message: String) =>
     let writeSubscribers: MapIs[WriteablePushNotify tag, WriteablePushNotify] = _writeSubscribers()
     for notify in writeSubscribers.values() do

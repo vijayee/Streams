@@ -11,7 +11,14 @@ interface ReadablePushNotify[R: Any #send]
 
 interface ReadablePushStream[R: Any #send]
   fun readable(): Bool
-  fun piped(): Bool
+  fun _destroyed(): Bool
+  fun ref piped(): Bool =>
+    let notify: (WriteablePushNotify tag | None) = _pipeNotify()
+    match notify
+      | let notify': WriteablePushNotify tag => true
+      else
+        false
+    end
   fun ref _pipeNotify(): (WriteablePushNotify tag | None)
   fun ref _readSubscribers() : MapIs[ReadablePushNotify[R] tag, ReadablePushNotify[R]]
   fun ref _notifyException(message: String) =>
@@ -34,6 +41,9 @@ interface ReadablePushStream[R: Any #send]
     else
       let notify': ReadablePushNotify[R] ref = consume notify
       readSubscribers(notify') = notify'
+    end
+    if readable() then
+      _notifyReadable()
     end
   fun ref _unsubscribeRead(notify: ReadablePushNotify[R] tag) =>
     let readSubscribers: MapIs[ReadablePushNotify[R] tag, ReadablePushNotify[R]] = _readSubscribers()
