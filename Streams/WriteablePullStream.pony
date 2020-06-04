@@ -1,15 +1,7 @@
 use "collections"
 
-interface WriteablePullNotify[W: Any #send]
-  fun ref throttled()
-  fun ref unthrottled()
-  fun ref exception(message: String)
-  fun ref unpipe(notify: ReadablePullNotify[W] tag)
-  fun ref pull()
-
-
 interface WriteablePullStream[W: Any #send]
-  fun ref _writeSubscribers() : MapIs[WriteablePullNotify[W] tag, WriteablePullNotify[W]]
+  fun ref _subscribers() : Array[WriteablePullNotify[W]]
   fun ref piped(): Bool =>
     match _pipeNotify()
       | let notify': ReadablePullNotify[W] tag => true

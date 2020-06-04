@@ -5,52 +5,40 @@ use ".."
 actor WriteablePushFileStream is WriteablePushStream[Array[U8] iso]
   var _isDestroyed: Bool = false
   let _file: File
-  let _subscribers: MapIs[WriteablePushNotify tag, WriteablePushNotify]
+  let _subscribers': Array[(WriteablePushNotify tag, Bool)]
+
   new create(file: File iso) =>
-    _subscribers = MapIs[WriteablePushNotify tag, WriteablePushNotify](1)
+    _subscribers = Array[(WriteablePushNotify tag, Bool)](10)
     _file = consume file
-  fun ref _writeSubscribers() : MapIs[WriteablePushNotify tag, WriteablePushNotify] =>
-    _subscribers
+  fun ref _subscribers : Array[(WriteablePushNotify tag, Bool)] =>
+    _subscribers'
   fun _destroyed(): Bool =>
     _isDestroyed
   be write(data: Array[U8] iso) =>
     if _destroyed() then
-      _notifyException("Stream has been destroyed")
+      _notifyError(Exception("Stream has been destroyed"))
     else
       let ok = _file.write(consume data)
       if not ok then
-        _notifyException("Failed to write data")
+        _notifyError(Exception("Failed to write data"))
       end
     end
-  be subscribeWrite(notify: WriteablePushNotify iso) =>
+  be piped(stream: ReadablePushStream[Array[U8] iso] tag) =>
     if _destroyed() then
-      _notifyException("Stream has been destroyed")
+      _notifyError(Exception("Stream has been destroyed"))
     else
-      _subscribeWrite(consume notify)
-    end
-  be piped(stream: ReadablePushStream[Array[U8] iso] tag, notify: WriteablePushNotify iso) =>
-    if _destroyed() then
-      _notifyException("Stream has been destroyed")
-    else
-      _subscribeWrite(consume notify)
-      let notify': _ReadablePushFileStreamNotify iso = recover _ReadablePushFileStreamNotify(this) end
-      stream.subscribeRead(consume notify')
+      let dataNotify: DataNotify iso = {(data': Array[U8] iso) is DataNotify (_stream: WriteablePushStream[Array[U8] iso] tag = this) => _stream.write(consume data') } iso
+      stream.subscribe(consume dataNotify)
+      let errorNotify: ErrorNotify iso = {(ex: Exception) is ErrorNotify (_stream: ReadablePushStream[Array[U8] iso] tag = this) => _stream.destroy(ex) } iso
+      stream.subscribe(consume errorNotify)
       _notifyPiped()
     end
 
-  be destroy(message: String) =>
-    _notifyException(message)
+  be destroy(message: (String | Exception)) =>
+    match message
+      | let message' : String =>
+        _notifyError(Exception(message))
+      | let message' : Exception =>
+        _notifyError(message')
+    end
     _isDestroyed = true
-
-class _WriteablePushFileStreamNotify is WriteablePushNotify
-  let _stream: ReadablePushStream[Array[U8] iso] tag
-  new create(stream: ReadablePushStream[Array[U8] iso] tag) =>
-    _stream = stream
-  fun ref throttled() => None
-  fun ref unthrottled() => None
-  fun ref readable() => None
-  fun ref unpiped() => None
-  fun ref piped() =>
-    _stream.push()
-  fun ref exception(message: String) =>
-    _stream.destroy(message)
