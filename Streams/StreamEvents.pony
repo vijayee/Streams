@@ -37,10 +37,22 @@ trait ErrorNotify
 primitive ErrorKey is ErrorNotify
    fun ref apply(ex: Exception) => None
 
+trait PipeNotify[W: Any #send]
+ fun ref apply(notify: ReadablePullNotify[W] tag)
+ fun box hash(): USize =>
+   4
+ fun box eq(that: box->UnpipeNotify): Bool =>
+  this.hash() == that.hash()
+ fun box ne(that: box->UnpipeNotify): Bool =>
+  this.hash() != that.hash()
+
+primitive PipeKey[W: Any #send] is UnpipeNotify[W]
+ fun ref apply() => None
+
 trait UnpipeNotify[W: Any #send]
   fun ref apply(notify: ReadablePullNotify[W] tag)
   fun box hash(): USize =>
-    4
+    5
   fun box eq(that: box->UnpipeNotify): Bool =>
    this.hash() == that.hash()
   fun box ne(that: box->UnpipeNotify): Bool =>
@@ -52,7 +64,7 @@ primitive UnpipeKey[W: Any #send] is UnpipeNotify[W]
 trait NextNotify
   fun ref apply()
   fun box hash(): USize =>
-    5
+    6
   fun box eq(that: box->NextNotify): Bool =>
    this.hash() == that.hash()
   fun box ne(that: box->NextNotify): Bool =>
@@ -64,7 +76,7 @@ primitive NextKey is NextNotify
 trait PipedNotify
   fun ref apply()
   fun box hash(): USize =>
-    6
+    7
   fun box eq(that: box->PipedNotify): Bool =>
    this.hash() == that.hash()
   fun box ne(that: box->PipedNotify): Bool =>
@@ -75,7 +87,7 @@ primitive PipedKey is PipedNotify
 trait UnpipedNotify
   fun ref apply()
   fun box hash(): USize =>
-    7
+    8
   fun box eq(that: box->UnpipedNotify): Bool =>
    this.hash() == that.hash()
   fun box ne(that: box->UnpipedNotify): Bool =>
@@ -87,7 +99,7 @@ primitive UnpipedKey is UnpipedNotify
 trait DataNotify[R: Any #send]
   fun ref apply(data: R)
   fun box hash(): USize =>
-    8
+    9
   fun box eq(that: box->DataNotify): Bool =>
    this.hash() == that.hash()
   fun box ne(that: box->DataNotify): Bool =>
@@ -99,7 +111,7 @@ primitive DataKey[R: Any #send] is DataNotify[R]
 trait ReadableNotify
   fun ref apply()
   fun box hash(): USize =>
-    9
+    10
   fun box eq(that: box->ReadableNotify): Bool =>
    this.hash() == that.hash()
   fun box ne(that: box->ReadableNotify): Bool =>
@@ -111,7 +123,7 @@ primitive ReadableKey is ReadableNotify
 trait FinishedNotify
   fun ref apply()
   fun box hash(): USize =>
-    10
+    11
   fun box eq(that: box->FinishedNotify): Bool =>
    this.hash() == that.hash()
   fun box ne(that: box->FinishedNotify): Bool =>

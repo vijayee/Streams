@@ -1,4 +1,5 @@
 use "collections"
+use "Exception"
 interface WriteablePushStream[W: Any #send]
   fun ref _subscribers(): Map[WriteablePushNotify, Array[(WriteablePushNotify, Bool)]]
 
@@ -19,17 +20,21 @@ interface WriteablePushStream[W: Any #send]
 
   fun _subscriberCount[A: WriteablePushNotify](): USize =>
     let subscribers: Map[WriteablePushNotify, Array[(WriteablePushNotify, Bool)]] = _subscribers()
-    var i: USize = 0
-    for notify in subscribers.keys() do
-      match notify
-        | let notify': A =>
-          try
-            i = subscribers(notify')?.size()
-          end
-          break
+    try
+      iftype A <: ThrottledNotify then
+        subscribers(ThrottledKey)?.size()
+      elseif A <: UnthrottledNotify then
+        subscribers(ThrottledKey)?.size()
+      elseif A <: ErrorNotify then
+        subscribers(ErrorKey)?.size()
+      elseif A <: PipeNotify then
+        subscriebers(PipeKey)?.size()
+      elseif A <: UnpipeNotify then
+        subscriebers(UnpipeKey)?.size()
       end
+    else
+      0
     end
-    i
 
   fun ref _discardOnces(subscribers: Array[(WriteablePushNotify, Bool)], let onces: Array[USize]) =>
     vare i: USize = 0
@@ -40,25 +45,36 @@ interface WriteablePushStream[W: Any #send]
     end
 
   fun ref _unsubscribe(notify: WriteablePushNotify tag) =>
-    if _destroyed() then
-      _notifyException("Stream has been destroyed")
-    else
-      let subscribers: Map[WriteablePushNotify, Array[(WriteablePushNotify, Bool)]]  = _subscribers()
-      try
-        var i: USize = 0
-        for type in subscribers.values() do
-          i = 0
-          while i < _type.size() do
-            if type(i)?._1 is notify then
-              type.delete(i)?
+    try
+      if _destroyed() then
+        _notifyException("Stream has been destroyed")
+      else
+        let subscribers: Map[WriteablePushNotify, Array[(WriteablePushNotify, Bool)]]  = _subscribers()
+        let arr: Array[(WriteablePushNotify, Bool)] = match WriteablePushNotify
+        | let notifiers: ThrottledNotify tag =>
+            subscribers(ThrottledKey)?
+          | let notifiers: UnthrottledNotify tag =>
+            subscribers(ThrottledKey)?
+          | let notifiers: ErrorNotify tag =>
+            subscribers(ErrorKey)?
+          | let notifiers: PipeNotify tag =>
+            subscribers(PipeKey)?
+          | let notifiers: UnpipeNotify tag =>
+            subscribers(UnpipeKey)?
+        end
+        try
+          var i: USize = 0
+          while i < arr.size() do
+            if arr(i)?._1 is notify then
+              arr.delete(i)?
               return
             else
               i = i + 1
             end
           end
+        else
+          _notifyError(Exception("Failed to Unsubscribe"))
         end
-      else
-        _notifyError(Exception("Failed to Unsubscribe"))
       end
     end
 
@@ -172,32 +188,17 @@ interface WriteablePushStream[W: Any #send]
 
   be write(data: W)
 
-  be piped(stream: ReadablePushStream[W] tag) /* =>
-    _subscribeWrite(consume notify)
-    let notify': ReadablePushNotify[W] iso = ReadablePushNotify[W]
-    stream.subscribeRead(consume notify')
-    _notifyPiped()
-  */
+  be piped(stream: ReadablePushStream[W] tag)
+
   be unpiped(notifiers: Array[WriteablePushNotify tag] iso) =>
     let subscribers: Map[WriteablePushNotify, Array[(WriteablePushNotify, Bool)]] = _subscribers()
     let notifiers': Array[WriteablePushNotify tag] =  consume notifiers
-    let i: USize = 0
-    while i < subscribers.size() do
-      let j: USize = 0
-      while j < notifiers'.size() do
-        try
-          if subscribers(i)? is notify(i)? then
-            notifiers'.delete(j)?
-            subscribers.delete(i)?
-            i = i - 1
-            break
-          end
-        end
+
+    let j: USize = 0
+    while j < notifiers'.size() do
+      try
+        _unsubscribe(notifiers'(i)?)
       end
-      if notifiers'.size() == 0 then
-        break
-      end
-      i = i + 1
     end
     _notifyUnpiped()
 
