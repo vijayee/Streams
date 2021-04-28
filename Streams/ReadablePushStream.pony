@@ -1,68 +1,59 @@
-
+use "collections"
+use "Exception"
 interface ReadablePushStream[R: Any #send]
   fun readable(): Bool
 
   fun _destroyed(): Bool
 
-  fun ref _piped(): Bool =>
-    let notify: (Array[(ReadablePushNotify tag, Bool)] iso | None) = _pipeNotify()
-    match notify
-      | let notify': ReadablePushNotify[R] tag => true
+  fun ref _piped(): Bool
+
+  fun ref _subscriberCount[A: Notify](): USize =>
+    let subscribers: Subscribers = _subscribers()
+    try
+      iftype A <: ThrottledNotify then
+        subscribers(ThrottledKey)?.size()
+      elseif A <: UnthrottledNotify then
+        subscribers(ThrottledKey)?.size()
+      elseif A <: ErrorNotify then
+        subscribers(ErrorKey)?.size()
+      elseif A <: PipeNotify then
+        subscribers(PipeKey)?.size()
+      elseif A <: UnpipeNotify then
+        subscribers(UnpipeKey)?.size()
+      elseif A <: DataNotify[R] then
+        subscribers(DataKey[R])?.size()
+      elseif A <: ReadableNotify then
+        subscribers(ReadableKey)?.size()
+      elseif A <: FinishedNotify then
+        subscribers(FinishedKey)?.size()
       else
-        false
-    end
-
-  fun _subscriberCount[A: ReadablePushNotify[R] tag](): USize =>
-    var i = 0
-    let subscribers: Array[ReadablePushNotify[R] tag] = _subscribers()
-    for notify in subscribers.values() do
-      match notify
-      | let notify': A =>
-          i = i + 1
+        0
       end
+    else
+      0
     end
-    i
 
-  fun ref _discardOnces(onces: Array[USize]) =>
-    let subscribers: Array[(ReadablePushNotify[R] tag, Bool)] = _subscribers()
-    vare i: USize = 0
+  fun ref _discardOnces(subscribers: Subscriptions, onces: Array[USize]) =>
+    var i: USize = 0
     for index in onces.values() do
       try
         subscribers.delete((index - (i = i + 1)))?
       end
     end
 
-  fun ref _pipeNotifiers(): (Array[ReadablePushNotify] tag iso | None)
+  fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None)
 
-  fun ref _subscribers() : Array[(ReadablePushNotify tag, Bool)]
+  fun ref _subscribers() : Subscribers
 
   fun ref _notifyError(ex: Exception) =>
-    let subscribers: Array[(ReadablePushNotify[R] tag, Bool)] = _subscribers()
-    let onces = Array[USize](subscribers.size())
-    var i: USize = 0
-    for notify in subscribers.values() do
-      match notify
-      |  (let notify': ErrorNotify, let once: Bool) =>
-          notify'._1(ex)
-          if once then
-            onces.push(i)
-          end
-      end
-      i = i + 1
-    end
-    if onces.size() > 0 then
-      _discardOnces(onces)
-    end
-
-  fun ref _notifyReadable() =>
-    if readable() then
-      let subscribers: Array[(ReadablePushNotify[R] tag, Bool)] = _subscribers()
+    try
+      let subscribers: Subscribers = _subscribers()
       let onces = Array[USize](subscribers.size())
       var i: USize = 0
-      for notify in subscribers.values() do
+      for notify in subscribers(ErrorKey)?.values() do
         match notify
-        |  (let notify': ReadablePushNotify[R], let once: Bool) =>
-            notify'._1(ex)
+        |  (let notify': ErrorNotify, let once: Bool) =>
+            notify'(ex)
             if once then
               onces.push(i)
             end
@@ -70,168 +61,259 @@ interface ReadablePushStream[R: Any #send]
         i = i + 1
       end
       if onces.size() > 0 then
-        _discardOnces(onces)
+        _discardOnces(subscribers(ErrorKey)?, onces)
       end
     end
 
-  fun ref _subscribe(notify: ReadablePushNotify[R] iso, once: Bool = false) =>
-    let subscribers: Array[(ReadablePushNotify[R] tag, Bool)] = _subscribers()
-    match notify
-      | let notify': DataNotify iso =>
-        if _subscriberCount[DataNotify tag]() < 1 then
-          subscribers.push((consume notify, once))
+  fun ref _notifyReadable() =>
+    if readable() then
+      try
+        let subscribers: Subscribers = _subscribers()
+        let onces = Array[USize](subscribers.size())
+        var i: USize = 0
+        for notify in subscribers(ReadableKey)?.values() do
+          match notify
+          |  (let notify': ReadableNotify, let once: Bool) =>
+              notify'()
+              if once then
+                onces.push(i)
+              end
+          end
+          i = i + 1
+        end
+        if onces.size() > 0 then
+          _discardOnces(subscribers(ReadableKey)?, onces)
+        end
+      end
+    end
+
+  fun ref _subscribe(notify: Notify iso, once: Bool = false) =>
+    let subscribers: Subscribers = _subscribers()
+    let notify': Notify = consume notify
+
+    match notify'
+      | let notify'': DataNotify[R]  =>
+        if _subscriberCount[DataNotify[R]]() < 1 then
+          try
+            subscribers(notify')?.push((notify', once))
+          else
+            let arr: Subscriptions = Subscriptions(10)
+            arr.push((notify', once))
+            subscribers(notify') =  arr
+          end
         else
           _notifyError(Exception("Multiple Data Subscribers"))
         end
-      | let notify': UnpipeNotify iso =>
-        if _subscriberCount[UnpipeNotify tag]() < 1 then
-          subscribers.push((consume notify, once))
+      | let notify'': UnpipeNotify =>
+        if _subscriberCount[UnpipeNotify]() < 1 then
+          try
+            subscribers(notify')?.push((notify', once))
+          else
+            let arr: Subscriptions = Subscriptions(10)
+            arr.push((notify', once))
+            subscribers(notify') =  arr
+          end
         else
           _notifyError(Exception("Multiple Unpipe Subscribers"))
         end
-      | let notify': ReadablePushNotify[R] iso =>
-        subscribers.push((consume notify, once))
-        if readable() then
-          _notifyReadable()
+      | let notify'': ReadableNotify =>
+        try
+          subscribers(notify')?.push((notify', once))
+        else
+          let arr: Subscriptions = Subscriptions(10)
+          arr.push((notify', once))
+          subscribers(notify') =  arr
         end
+        _notifyReadable()
       else
-        subscribers.push((consume notify, once))
+        try
+          subscribers(notify')?.push((notify', once))
+        else
+          let arr: Subscriptions = Subscriptions(10)
+          arr.push((notify', once))
+          subscribers(notify') =  arr
+        end
     end
 
-  fun ref _unsubscribe(notify: ReadablePushNotify[R] tag) =>
-    let subscribers: Array[ReadablePushNotify[R]] = _subscribers()
+  fun ref _unsubscribe(notify: Notify tag) =>
     try
-      var i: USize = 0
-      while i < _subscribers.size() do
-        if _subscribers(i)? is notify then
-          _subscribers.delete(i)?
-          break
-        else
-          i = i + 1
-        end
+      let subscribers: Subscribers = _subscribers()
+      let arr: (Subscriptions | None) = match notify
+        | let notify': ThrottledNotify tag =>
+          subscribers(ThrottledKey)?
+        | let notify': UnthrottledNotify tag =>
+          subscribers(ThrottledKey)?
+        | let notify': ErrorNotify tag =>
+          subscribers(ErrorKey)?
+        | let notify': PipeNotify tag =>
+          subscribers(PipeKey)?
+        | let notify': UnpipeNotify tag =>
+          subscribers(UnpipeKey)?
+        | let notify': DataNotify[R] tag =>
+          subscribers(DataKey[R])?
+        | let notify': ReadableNotify tag =>
+          subscribers(ReadableKey)?
+        | let notify': FinishedNotify tag =>
+          subscribers(FinishedKey)?
+      end
+      match arr
+        | let arr': Subscriptions =>
+          var i: USize = 0
+          while i < arr'.size() do
+            if arr'(i)? is notify then
+              arr'.delete(i)?
+              break
+            else
+              i = i + 1
+            end
+          end
       end
     else
       _notifyError(Exception("Failed to Unsubscribe"))
     end
 
   fun ref _notifyData(data: R) =>
-    let subscribers: Array[(ReadablePushNotify[R] tag, Bool)] = _subscribers()
-    var notify'': (ReadablePushNotify[R] | None) =  None
-    let onces = Array[USize](subscribers.size())
+    try
+      let subscribers: Subscribers  = _subscribers()
+      var notify'': (DataNotify[R] | None) =  None
+      let onces = Array[USize](subscribers.size())
 
-    var i: USize = 0
-    for notify in subscribers.values() do
-      match notify
-      |  (let notify': DataNotify, let once: Bool) =>
-          notify'' = notify'._1
-          if once then
-            onces.push(i)
-          end
+      var i: USize = 0
+      for notify in subscribers(DataKey[R])?.values() do
+        match notify
+        |  (let notify': DataNotify[R], let once: Bool) =>
+            notify'' = notify'
+            if once then
+              onces.push(i)
+            end
+            break
+        end
+        i = i + 1
       end
-      i = i + 1
-    end
 
-    match notify''
-    | let notify''': DataNotify =>
+      match notify''
+      | let notify''': DataNotify[R] =>
         notify'''(consume data)
-    end
-    if onces.size() > 0 then
-      _discardOnces(onces)
+      end
+      if onces.size() > 0 then
+        _discardOnces(subscribers(DataKey[R])?,onces)
+      end
     end
 
   fun ref _notifyFinished() =>
-    let subscribers: Array[(ReadablePushNotify[R] tag, Bool)] = _subscribers()
-    let onces = Array[USize](subscribers.size())
-    var i: USize = 0
-    for notify in subscribers.values() do
-      match notify
-      |  (let notify': FinishedNotify, let once: Bool) =>
-          notify'._1()
-          if once then
-            onces.push(i)
-          end
+    try
+      let subscribers: Subscribers = _subscribers()
+      let onces = Array[USize](subscribers.size())
+      var i: USize = 0
+      for notify in subscribers(FinishedKey)?.values() do
+        match notify
+        |  (let notify': FinishedNotify, let once: Bool) =>
+            notify'()
+            if once then
+              onces.push(i)
+            end
+        end
+        i = i + 1
       end
-      i = i + 1
+      if onces.size() > 0 then
+        _discardOnces(subscribers(FinishedKey)?, onces)
+      end
+      subscribers.clear()
     end
-    if onces.size() > 0 then
-      _discardOnces(onces)
+
+  fun ref _notifyClose() =>
+    try
+      let subscribers: Subscribers = _subscribers()
+      let onces = Array[USize](subscribers.size())
+      var i: USize = 0
+      for notify in subscribers(CloseKey)?.values() do
+        match notify
+        |  (let notify': CloseNotify, let once: Bool) =>
+            notify'()
+            if once then
+              onces.push(i)
+            end
+        end
+        i = i + 1
+      end
+      if onces.size() > 0 then
+        _discardOnces(subscribers(CloseKey)?, onces)
+      end
+      subscribers.clear()
     end
-    subscribers.clear()
 
   be push()
 
   be read(size:(USize | None) = None, cb: {(R)} val)
 
-  be subscribe(notify: ReadablePushNotify[R] iso, once: Bool = false) =>
-    match notify
-    | let notify': DataNotify iso  =>
-      _subscribe(consume notify, once)
-      if ((_subscriberCount[DataNotify tag]()) >= 1) and (not _piped()) and _readable()) then
-        push()
-      end
-    else
-      _subscribe(consume notify, once)
-    end
+  be subscribe(notify: Notify iso, once: Bool = false) =>
+    _subscribe(consume notify, once)
 
-  be unsubscribe(notify: ReadablePushNotify[R] tag) =>
+  be unsubscribe(notify: Notify tag) =>
     _unsubscribe(notify)
 
   be pipe(stream: WriteablePushStream[R] tag)
 
   fun ref _notifyPipe() =>
-    let subscribers: Array[(ReadablePushNotify[R] tag, Bool)] = _subscribers()
-    let onces = Array[USize](subscribers.size())
-    var i: USize = 0
-    for notify in subscribers.values() do
-      match notify
-      |  (let notify': PipeNotify, let once: Bool) =>
-          notify'._1()
-          if once then
-            onces.push(i)
-          end
-      end
-      i = i + 1
-    end
-    if onces.size() > 0 then
-      _discardOnces(onces)
-    end
-    if onces.size() > 0 then
-      _discardOnces(onces)
-    end
-  fun ref _notifyUnpipe(notifiers: (Array[ReadablePushNotify tag] iso | None)) =>
-    let subscribers: Array[(ReadablePushNotify[R] tag, Bool)] = _subscribers()
-    let onces = Array[USize](subscribers.size())
-    var notify'': (UnpipeNotify | None) = None
-    var i: USize = 0
-    for notify in subscribers.values() do
-      match notify
-      |  (let notify': UpipeNotify, let once: Bool) =>
-          notify'' = notify'._1
-          if once then
-            onces.push(i)
-          end
-      end
-      i = i + 1
-    end
-    match notify''
-    | let notify''': DataNotify =>
-        match notifiers
-        | let notifiers': Array[ReadablePushNotify tag] iso =>
-          notify'''(consume notifiers')
-        | None =>
-          notify'''(None)
+    try
+      let subscribers: Subscribers = _subscribers()
+      let onces = Array[USize](subscribers.size())
+      var i: USize = 0
+      for notify in subscribers(PipeKey)?.values() do
+        match notify
+        |  (let notify': PipeNotify, let once: Bool) =>
+            notify'()
+            if once then
+              onces.push(i)
+            end
         end
+        i = i + 1
+      end
+      if onces.size() > 0 then
+        _discardOnces(subscribers(PipeKey)?, onces)
+      end
     end
-    if onces.size() > 0 then
-      _discardOnces(onces)
+
+  fun ref _notifyUnpipe() =>
+    try
+      let subscribers: Subscribers = _subscribers()
+      let onces = Array[USize](subscribers.size())
+      var notifiers: Array[Notify tag] iso = _pipeNotifiers() as Array[Notify tag] iso^
+      var notify'': (UnpipeNotify | None) = None
+      var i: USize = 0
+      for notify in subscribers(UnpipeKey)?.values() do
+        match notify
+          |  (let notify': UnpipeNotify, let once: Bool) =>
+            notify'' = notify'
+            if once then
+              onces.push(i)
+            end
+            break
+        end
+        i = i + 1
+      end
+      match notify''
+        | let notify''': UnpipeNotify =>
+          notify'''(consume notifiers)
+      end
+      if onces.size() > 0 then
+        _discardOnces(subscribers(UnpipeKey)?, onces)
+      end
     end
 
   be unpipe() =>
-    if piped() then
+    if _piped() then
       _notifyUnpipe()
     end
-    let readSubscribers: (Array[ReadablePushNotify tag] iso | None) = _pipeNotifiers()
-    readSubscribers.clear()
+    let subscribers: Subscribers = _subscribers()
+    subscribers.clear()
 
   be destroy(message: (String | Exception)) =>
-    _notifyError(Exception(message))
+    match message
+      | let message' : String =>
+        _notifyError(Exception(message'))
+      | let message' : Exception =>
+        _notifyError(message')
+    end
+
+  be close()

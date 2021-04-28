@@ -1,62 +1,113 @@
 use "collections"
+use "Exception"
 use "files"
 use ".."
-
-class _WriteablePullFileStreamNotify is WriteablePullNotify[Array[U8] iso]
-  let _stream: ReadablePullStream[Array[U8] iso] tag
-  new create(stream: ReadablePullStream[Array[U8] iso] tag) =>
-    _stream = stream
-  fun ref throttled() => None
-  fun ref unthrottled() => None
-  fun ref exception(message: String) =>
-    _stream.destroy(message)
-  fun ref unpipe(notify: ReadablePullNotify[Array[U8] iso] tag) =>
-    _stream.unpiped(notify)
-  fun ref pull() =>
-    _stream.pull()
 
 actor WriteablePullFileStream is WriteablePullStream[Array[U8] iso]
   var _isDestroyed: Bool = false
   let _file: File
-  let _subscribers: MapIs[WriteablePullNotify[Array[U8] iso] tag, WriteablePullNotify[Array[U8] iso]]
-  var _notify: (ReadablePullNotify[Array[U8] iso] tag | None) = None
+  let _subscribers': Subscribers
+  var _pipeNotifiers': (Array[Notify tag] iso | None) = None
+  var _isPiped: Bool = false
+
   new create(file: File iso) =>
-    _subscribers = MapIs[WriteablePullNotify[Array[U8] iso] tag, WriteablePullNotify[Array[U8] iso]](1)
+    _subscribers' = Subscribers(3)
     _file = consume file
-  fun ref _writeSubscribers() : MapIs[WriteablePullNotify[Array[U8] iso] tag, WriteablePullNotify[Array[U8] iso]] =>
-    _subscribers
-  fun ref _pipeNotify(): (ReadablePullNotify[Array[U8] iso] tag | None) =>
-    _notify
+
+  fun ref _subscribers(): Subscribers=>
+    _subscribers'
+
+  fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
+    _pipeNotifiers' = None
+
   fun _destroyed(): Bool =>
     _isDestroyed
+
   be write(data: Array[U8] iso) =>
     if _destroyed() then
-      _notifyException("Stream has been destroyed")
+      _notifyError(Exception("Stream has been destroyed"))
     else
-      let data': Array[U8] val = consume data
-      let ok = _file.write(data')
+      let ok = _file.write(consume data)
       if not ok then
-        _notifyException("Failed to write data")
-      else
-        pull()
+        _notifyError(Exception("Failed to write data"))
       end
     end
-  be subscribeWrite(notify: WriteablePullNotify[Array[U8] iso] iso) =>
-    if _destroyed() then
-      _notifyException("Stream has been destroyed")
-    else
-      _subscribeWrite(consume notify)
-    end
-
-  be destroy(message: String) =>
-    _notifyException(message)
-    _isDestroyed = true
 
   be pipe(stream: ReadablePullStream[Array[U8] iso] tag) =>
     if _destroyed() then
-      _notifyException("Stream has been destroyed")
+      _notifyError(Exception("Stream has been destroyed"))
     else
-      let notify: _ReadablePullFileStreamNotify iso = recover _ReadablePullFileStreamNotify(this) end
-      _notify = notify
-      stream.piped(this, consume notify)
+      let pipeNotifiers: Array[Notify tag] iso = try
+         _pipeNotifiers() as Array[Notify tag] iso^
+      else
+        let pipeNotifiers' = recover Array[Notify tag] end
+        consume pipeNotifiers'
+      end
+
+      let dataNotify: DataNotify[Array[U8] iso] iso = object iso is DataNotify[Array[U8] iso]
+        let _stream: WriteablePullStream[Array[U8] iso] tag = this
+        fun ref apply(data': Array[U8] iso) =>
+          _stream.write(consume data')
+          stream.pull()
+      end
+      stream.subscribe(consume dataNotify)
+
+      let pipedNotify: PipedNotify iso =  object iso is PipedNotify
+        fun ref apply() =>
+          stream.pull()
+      end
+      let pipedNotify': PipedNotify tag = pipedNotify
+      pipeNotifiers.push(pipedNotify')
+      stream.subscribe(consume pipedNotify)
+
+      let errorNotify: ErrorNotify iso = object iso  is ErrorNotify
+        let _stream: WriteablePullStream[Array[U8] iso] tag = this
+        fun ref apply (ex: Exception) => _stream.destroy(ex)
+      end
+      let errorNotify': ErrorNotify tag = errorNotify
+      pipeNotifiers.push(errorNotify')
+      stream.subscribe(consume errorNotify)
+
+      let finishedNotify: FinishedNotify iso = object iso  is FinishedNotify
+        let _stream: WriteablePullStream[Array[U8] iso] tag = this
+        fun ref apply () => _stream.close()
+      end
+      let finishedNotify': FinishedNotify tag = finishedNotify
+      pipeNotifiers.push(finishedNotify')
+      stream.subscribe(consume finishedNotify)
+
+      let closeNotify: CloseNotify iso = object iso  is CloseNotify
+        let _stream: WriteablePullStream[Array[U8] iso] tag = this
+        fun ref apply () => _stream.close()
+      end
+      let closeNotify': CloseNotify tag = closeNotify
+      pipeNotifiers.push(closeNotify')
+      stream.subscribe(consume closeNotify)
+
+      _pipeNotifiers' = consume pipeNotifiers
+      stream.piped(this)
+      _isPiped = true
+      _notifyPipe()
+    end
+
+  be destroy(message: (String | Exception)) =>
+    match message
+      | let message' : String =>
+        _notifyError(Exception(message'))
+      | let message' : Exception =>
+        _notifyError(message')
+    end
+    _isDestroyed = true
+    _file.dispose()
+    let subscribers: Subscribers = _subscribers()
+    subscribers.clear()
+
+  be close() =>
+    if not _destroyed() then
+      _isDestroyed = true
+      _file.dispose()
+      _notifyClose()
+      let subscribers: Subscribers = _subscribers()
+      subscribers.clear()
+      _pipeNotifiers' = None
     end
