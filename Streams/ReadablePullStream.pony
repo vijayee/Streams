@@ -1,17 +1,8 @@
-use "collections"
 use "Exception"
-interface ReadablePullStream[R: Any #send]
+interface ReadablePullStream[R: Any #send] is Stream
   fun readable(): Bool
 
   fun _destroyed(): Bool
-
-  fun ref _discardOnces(subscribers: Subscriptions, onces: Array[USize]) =>
-    var i: USize = 0
-    for index in onces.values() do
-      try
-        subscribers.delete((index - (i = i + 1)))?
-      end
-    end
 
   fun ref _subscriberCount[A: Notify](): USize =>
     let subscribers: Subscribers = _subscribers()
@@ -37,27 +28,6 @@ interface ReadablePullStream[R: Any #send]
       end
     else
       0
-    end
-  fun ref _subscribers() : Subscribers
-
-  fun ref _notifyError(ex: Exception) =>
-    try
-      let subscribers: Subscribers = _subscribers()
-      let onces = Array[USize](subscribers.size())
-      var i: USize = 0
-      for notify in subscribers(ErrorKey)?.values() do
-        match notify
-        |  (let notify': ErrorNotify, let once: Bool) =>
-            notify'(ex)
-            if once then
-              onces.push(i)
-            end
-        end
-        i = i + 1
-      end
-      if onces.size() > 0 then
-        _discardOnces(subscribers(ErrorKey)?, onces)
-      end
     end
 
   fun ref _notifyReadable() =>
@@ -195,57 +165,9 @@ interface ReadablePullStream[R: Any #send]
       end
     end
 
-  fun ref _notifyFinished() =>
-    try
-      let subscribers: Subscribers = _subscribers()
-      let onces = Array[USize](subscribers.size())
-      var i: USize = 0
-      for notify in subscribers(FinishedKey)?.values() do
-        match notify
-        |  (let notify': FinishedNotify, let once: Bool) =>
-            notify'()
-            if once then
-              onces.push(i)
-            end
-        end
-        i = i + 1
-      end
-      if onces.size() > 0 then
-        _discardOnces(subscribers(FinishedKey)?, onces)
-      end
-      subscribers.clear()
-    end
-
-  fun ref _notifyClose() =>
-    try
-      let subscribers: Subscribers = _subscribers()
-      let onces = Array[USize](subscribers.size())
-      var i: USize = 0
-      for notify in subscribers(CloseKey)?.values() do
-        match notify
-        |  (let notify': CloseNotify, let once: Bool) =>
-            notify'()
-            if once then
-              onces.push(i)
-            end
-        end
-        i = i + 1
-      end
-      if onces.size() > 0 then
-        _discardOnces(subscribers(CloseKey)?, onces)
-      end
-      subscribers.clear()
-    end
-
   be pull()
 
   be read(size:(USize | None) = None, cb: {(R)} val)
-
-  be subscribe(notify: Notify iso, once: Bool = false) =>
-    _subscribe(consume notify, once)
-
-  be unsubscribe(notify: Notify tag) =>
-    _unsubscribe(notify)
 
   be piped(stream: WriteablePullStream[R] tag)
 
@@ -299,14 +221,6 @@ interface ReadablePullStream[R: Any #send]
       if onces.size() > 0 then
         _discardOnces(subscribers(UnpipedKey)?, onces)
       end
-    end
-
-  be destroy(message: (String | Exception)) =>
-    match message
-      | let message' : String =>
-        _notifyError(Exception(message'))
-      | let message' : Exception =>
-        _notifyError(message')
     end
 
   be close()
