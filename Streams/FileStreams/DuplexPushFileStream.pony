@@ -2,7 +2,7 @@ use "Exception"
 use "files"
 use ".."
 
-actor ReadablePushFileStream is ReadablePushStream[Array[U8] iso]
+actor DuplexPushFileStream is DuplexPushStream[Array[U8] iso]
   var _readable: Bool = true
   var _isDestroyed: Bool = false
   let _file: File
@@ -16,20 +16,14 @@ actor ReadablePushFileStream is ReadablePushStream[Array[U8] iso]
     _file = consume file
     _chunkSize = chunkSize
 
-  fun readable(): Bool =>
-    _readable
+  fun ref _subscribers(): Subscribers=>
+    _subscribers'
 
   fun _destroyed(): Bool =>
     _isDestroyed
 
-  fun ref _piped(): Bool =>
-    _isPiped
-
-  fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
-    _pipeNotifiers' = None
-
-  fun ref _subscribers() : Subscribers =>
-    _subscribers'
+  fun readable(): Bool =>
+    _readable
 
   be push() =>
     if _destroyed() then
@@ -45,6 +39,16 @@ actor ReadablePushFileStream is ReadablePushStream[Array[U8] iso]
         _notifyFinished()
       else
         push()
+      end
+    end
+
+  be write(data: Array[U8] iso) =>
+    if _destroyed() then
+      _notifyError(Exception("Stream has been destroyed"))
+    else
+      let ok = _file.write(consume data)
+      if not ok then
+        _notifyError(Exception("Failed to write data"))
       end
     end
 
@@ -66,6 +70,41 @@ actor ReadablePushFileStream is ReadablePushStream[Array[U8] iso]
       if (_file.size() == _file.position()) then
         _notifyFinished()
       end
+    end
+
+  fun ref _piped(): Bool =>
+    _isPiped
+
+  fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
+    _pipeNotifiers' = None
+
+  be piped(stream: ReadablePushStream[Array[U8] iso] tag) =>
+    if _destroyed() then
+      _notifyError(Exception("Stream has been destroyed"))
+    else
+      let dataNotify: DataNotify[Array[U8] iso] iso = object iso is DataNotify[Array[U8] iso]
+        let _stream: WriteablePushStream[Array[U8] iso] tag = this
+        fun ref apply(data': Array[U8] iso) =>
+          _stream.write(consume data')
+      end
+      stream.subscribe(consume dataNotify)
+      let errorNotify: ErrorNotify iso = object iso is ErrorNotify
+        let _stream: WriteablePushStream[Array[U8] iso] tag = this
+        fun ref apply(ex: Exception) => _stream.destroy(ex)
+      end
+      stream.subscribe(consume errorNotify)
+      let finishedNotify: FinishedNotify iso = object iso is FinishedNotify
+        let _stream: WriteablePushStream[Array[U8] iso] tag = this
+        fun ref apply() => _stream.close()
+      end
+      stream.subscribe(consume finishedNotify)
+      let closeNotify: CloseNotify iso = object iso  is CloseNotify
+        let _stream: WriteablePushStream[Array[U8] iso] tag = this
+        fun ref apply () => _stream.close()
+      end
+      let closeNotify': CloseNotify tag = closeNotify
+      stream.subscribe(consume closeNotify)
+      _notifyPiped()
     end
 
   be pipe(stream: WriteablePushStream[Array[U8] iso] tag) =>
@@ -129,13 +168,23 @@ actor ReadablePushFileStream is ReadablePushStream[Array[U8] iso]
     _file.dispose()
     let subscribers: Subscribers = _subscribers()
     subscribers.clear()
+    _pipeNotifiers' = None
+
+  fun ref _close() =>
+    if not _destroyed() then
+      _isDestroyed = true
+      _file.dispose()
+      _notifyClose()
+      let subscribers: Subscribers = _subscribers()
+      subscribers.clear()
+      _pipeNotifiers' = None
+    end
 
   be close() =>
-  if not _destroyed() then
-    _isDestroyed = true
-    _notifyClose()
-    _file.dispose()
-    let subscribers: Subscribers = _subscribers()
-    subscribers.clear()
-    _pipeNotifiers' = None
-  end
+    _close()
+
+  be closeRead() =>
+    _close()
+
+  be closeWrite() =>
+    _close()
