@@ -35,8 +35,8 @@ actor ReadablePullFileStream is ReadablePullStream[Array[U8] iso]
       end
       _notifyData(consume chunk)
       if (_file.size() == _file.position()) then
-        _notifyFinished()
-        _isDestroyed = true
+        _notifyComplete()
+        close()
       end
     end
 
@@ -56,7 +56,7 @@ actor ReadablePullFileStream is ReadablePullStream[Array[U8] iso]
       end
       cb(consume chunk)
       if (_file.size() == _file.position()) then
-        _notifyFinished()
+        _notifyComplete()
       end
     end
 

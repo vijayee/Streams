@@ -36,7 +36,8 @@ actor DuplexPushFileStream is DuplexPushStream[Array[U8] iso]
       end
       _notifyData(consume chunk)
       if (_file.size() == _file.position()) then
-        _notifyFinished()
+        _notifyComplete()
+        closeRead()
       else
         push()
       end
@@ -68,7 +69,7 @@ actor DuplexPushFileStream is DuplexPushStream[Array[U8] iso]
       end
       cb(consume chunk)
       if (_file.size() == _file.position()) then
-        _notifyFinished()
+        _notifyComplete()
       end
     end
 
@@ -83,23 +84,23 @@ actor DuplexPushFileStream is DuplexPushStream[Array[U8] iso]
       _notifyError(Exception("Stream has been destroyed"))
     else
       let dataNotify: DataNotify[Array[U8] iso] iso = object iso is DataNotify[Array[U8] iso]
-        let _stream: WriteablePushStream[Array[U8] iso] tag = this
+        let _stream: DuplexPushStream[Array[U8] iso] tag = this
         fun ref apply(data': Array[U8] iso) =>
           _stream.write(consume data')
       end
       stream.subscribe(consume dataNotify)
       let errorNotify: ErrorNotify iso = object iso is ErrorNotify
-        let _stream: WriteablePushStream[Array[U8] iso] tag = this
+        let _stream: DuplexPushStream[Array[U8] iso] tag = this
         fun ref apply(ex: Exception) => _stream.destroy(ex)
       end
       stream.subscribe(consume errorNotify)
-      let finishedNotify: FinishedNotify iso = object iso is FinishedNotify
-        let _stream: WriteablePushStream[Array[U8] iso] tag = this
+      let completeNotify: CompleteNotify iso = object iso is CompleteNotify
+        let _stream: DuplexPushStream[Array[U8] iso] tag = this
         fun ref apply() => _stream.close()
       end
-      stream.subscribe(consume finishedNotify)
+      stream.subscribe(consume completeNotify)
       let closeNotify: CloseNotify iso = object iso  is CloseNotify
-        let _stream: WriteablePushStream[Array[U8] iso] tag = this
+        let _stream: DuplexPushStream[Array[U8] iso] tag = this
         fun ref apply () => _stream.close()
       end
       let closeNotify': CloseNotify tag = closeNotify
@@ -119,7 +120,7 @@ actor DuplexPushFileStream is DuplexPushStream[Array[U8] iso]
       end
 
       let pipedNotify: PipedNotify iso =  object iso is PipedNotify
-        let _stream: ReadablePushStream[Array[U8] iso] tag = this
+        let _stream: DuplexPushStream[Array[U8] iso] tag = this
         fun ref apply() =>
           _stream.push()
       end
@@ -128,23 +129,15 @@ actor DuplexPushFileStream is DuplexPushStream[Array[U8] iso]
       stream.subscribe(consume pipedNotify)
 
       let errorNotify: ErrorNotify iso = object iso  is ErrorNotify
-        let _stream: ReadablePushStream[Array[U8] iso] tag = this
+        let _stream: DuplexPushStream[Array[U8] iso] tag = this
         fun ref apply (ex: Exception) => _stream.destroy(ex)
       end
       let errorNotify': ErrorNotify tag = errorNotify
       pipeNotifiers.push(errorNotify')
       stream.subscribe(consume errorNotify)
 
-      let finishedNotify: FinishedNotify iso = object iso  is FinishedNotify
-        let _stream: ReadablePushStream[Array[U8] iso] tag = this
-        fun ref apply () => _stream.close()
-      end
-      let finishedNotify': FinishedNotify tag = finishedNotify
-      pipeNotifiers.push(finishedNotify')
-      stream.subscribe(consume finishedNotify)
-
       let closeNotify: CloseNotify iso = object iso  is CloseNotify
-        let _stream: ReadablePushStream[Array[U8] iso] tag = this
+        let _stream: DuplexPushStream[Array[U8] iso] tag = this
         fun ref apply () => _stream.close()
       end
       let closeNotify': CloseNotify tag = closeNotify

@@ -22,26 +22,6 @@ interface Stream
   be unsubscribe(notify: Notify tag) =>
     _unsubscribe(notify)
 
-  fun ref _notifyFinished() =>
-    try
-      let subscribers: Subscribers = _subscribers()
-      let onces = Array[USize](subscribers.size())
-      var i: USize = 0
-      for notify in subscribers(FinishedKey)?.values() do
-        match notify
-        |  (let notify': FinishedNotify, let once: Bool) =>
-            notify'()
-            if once then
-              onces.push(i)
-            end
-        end
-        i = i + 1
-      end
-      if onces.size() > 0 then
-        _discardOnces(subscribers(FinishedKey)?, onces)
-      end
-      subscribers.clear()
-    end
 
   fun ref _notifyError(ex: Exception) =>
     try

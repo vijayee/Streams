@@ -52,6 +52,27 @@ interface ReadablePushStream[R: Any #send] is Stream
       end
     end
 
+  fun ref _notifyComplete() =>
+    try
+      let subscribers: Subscribers = _subscribers()
+      let onces = Array[USize](subscribers.size())
+      var i: USize = 0
+      for notify in subscribers(CompleteKey)?.values() do
+        match notify
+        |  (let notify': CompleteNotify, let once: Bool) =>
+            notify'()
+            if once then
+              onces.push(i)
+            end
+        end
+        i = i + 1
+      end
+      if onces.size() > 0 then
+        _discardOnces(subscribers(FinishedKey)?, onces)
+      end
+      subscribers.clear()
+      end
+
   be push()
 
   be read(size:(USize | None) = None, cb: {(R)} val)
@@ -79,6 +100,26 @@ interface ReadablePushStream[R: Any #send] is Stream
       end
       if onces.size() > 0 then
         _discardOnces(subscribers(PipeKey)?, onces)
+      end
+    end
+
+  fun ref _notifyEmpty() =>
+    try
+      let subscribers: Subscribers = _subscribers()
+      let onces = Array[USize](subscribers.size())
+      var i: USize = 0
+      for notify in subscribers(EmptyKey)?.values() do
+        match notify
+        |  (let notify': EmptyNotify, let once: Bool) =>
+            notify'()
+            if once then
+              onces.push(i)
+            end
+        end
+        i = i + 1
+      end
+      if onces.size() > 0 then
+        _discardOnces(subscribers(EmptyKey)?, onces)
       end
     end
 
@@ -133,8 +174,8 @@ interface ReadablePushStream[R: Any #send] is Stream
        subscribers(DataKey[R])?.size()
      elseif A <: ReadableNotify then
        subscribers(ReadableKey)?.size()
-     elseif A <: FinishedNotify then
-       subscribers(FinishedKey)?.size()
+     elseif A <: CompleteNotify then
+       subscribers(CompleteKey)?.size()
      else
        0
      end
@@ -208,8 +249,8 @@ interface ReadablePushStream[R: Any #send] is Stream
           subscribers(DataKey[R])?
         | let notify': ReadableNotify tag =>
           subscribers(ReadableKey)?
-        | let notify': FinishedNotify tag =>
-          subscribers(FinishedKey)?
+        | let notify': CompleteNotify tag =>
+          subscribers(CompleteKey)?
       end
       match arr
         | let arr': Subscriptions =>

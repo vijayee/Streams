@@ -10,10 +10,13 @@ actor WriteablePushFileStream is WriteablePushStream[Array[U8] iso]
   new create(file: File iso) =>
     _subscribers' = Subscribers(3)
     _file = consume file
+
   fun ref _subscribers(): Subscribers=>
     _subscribers'
+
   fun _destroyed(): Bool =>
     _isDestroyed
+
   be write(data: Array[U8] iso) =>
     if _destroyed() then
       _notifyError(Exception("Stream has been destroyed"))
@@ -23,6 +26,7 @@ actor WriteablePushFileStream is WriteablePushStream[Array[U8] iso]
         _notifyError(Exception("Failed to write data"))
       end
     end
+
   be piped(stream: ReadablePushStream[Array[U8] iso] tag) =>
     if _destroyed() then
       _notifyError(Exception("Stream has been destroyed"))
@@ -38,14 +42,15 @@ actor WriteablePushFileStream is WriteablePushStream[Array[U8] iso]
         fun ref apply(ex: Exception) => _stream.destroy(ex)
       end
       stream.subscribe(consume errorNotify)
-      let finishedNotify: FinishedNotify iso = object iso is FinishedNotify
+      let completeNotify: CompleteNotify iso = object iso is CompleteNotify
         let _stream: WriteablePushStream[Array[U8] iso] tag = this
         fun ref apply() => _stream.close()
       end
-      stream.subscribe(consume finishedNotify)
+      stream.subscribe(consume completeNotify)
       let closeNotify: CloseNotify iso = object iso  is CloseNotify
         let _stream: WriteablePushStream[Array[U8] iso] tag = this
-        fun ref apply () => _stream.close()
+        fun ref apply () =>
+          _stream.close()
       end
       let closeNotify': CloseNotify tag = closeNotify
       stream.subscribe(consume closeNotify)
@@ -64,11 +69,12 @@ actor WriteablePushFileStream is WriteablePushStream[Array[U8] iso]
     let subscribers: Subscribers = _subscribers()
     subscribers.clear()
 
-be close() =>
-  if not _destroyed() then
-    _isDestroyed = true
-    _file.dispose()
-    _notifyClose()
-    let subscribers: Subscribers = _subscribers()
-    subscribers.clear()
-  end
+  be close() =>
+    if not _destroyed() then
+      _notifyFinished()
+      _isDestroyed = true
+      _file.dispose()
+      _notifyClose()
+      let subscribers: Subscribers = _subscribers()
+      subscribers.clear()
+    end

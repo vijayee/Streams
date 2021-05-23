@@ -3,6 +3,10 @@
     {
       "type": "github",
       "repo": "vijayee/Exception"
+    },
+    {
+      "type": "github",
+      "repo": "vijayee/Blake2b"
     }
   ]
 }

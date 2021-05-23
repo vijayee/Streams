@@ -42,7 +42,8 @@ actor ReadablePushFileStream is ReadablePushStream[Array[U8] iso]
       end
       _notifyData(consume chunk)
       if (_file.size() == _file.position()) then
-        _notifyFinished()
+        _notifyComplete()
+        close()
       else
         push()
       end
@@ -64,7 +65,7 @@ actor ReadablePushFileStream is ReadablePushStream[Array[U8] iso]
       end
       cb(consume chunk)
       if (_file.size() == _file.position()) then
-        _notifyFinished()
+        _notifyComplete()
       end
     end
 
@@ -95,14 +96,6 @@ actor ReadablePushFileStream is ReadablePushStream[Array[U8] iso]
       let errorNotify': ErrorNotify tag = errorNotify
       pipeNotifiers.push(errorNotify')
       stream.subscribe(consume errorNotify)
-
-      let finishedNotify: FinishedNotify iso = object iso  is FinishedNotify
-        let _stream: ReadablePushStream[Array[U8] iso] tag = this
-        fun ref apply () => _stream.close()
-      end
-      let finishedNotify': FinishedNotify tag = finishedNotify
-      pipeNotifiers.push(finishedNotify')
-      stream.subscribe(consume finishedNotify)
 
       let closeNotify: CloseNotify iso = object iso  is CloseNotify
         let _stream: ReadablePushStream[Array[U8] iso] tag = this

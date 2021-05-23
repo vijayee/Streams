@@ -21,8 +21,8 @@ interface ReadablePullStream[R: Any #send] is Stream
         subscribers(DataKey[R])?.size()
       elseif A <: ReadableNotify then
         subscribers(ReadableKey)?.size()
-      elseif A <: FinishedNotify then
-        subscribers(FinishedKey)?.size()
+      elseif A <: CompleteNotify then
+        subscribers(CompleteKey)?.size()
       else
         0
       end
@@ -51,6 +51,27 @@ interface ReadablePullStream[R: Any #send] is Stream
         end
       end
     end
+
+  fun ref _notifyComplete() =>
+    try
+      let subscribers: Subscribers = _subscribers()
+      let onces = Array[USize](subscribers.size())
+      var i: USize = 0
+      for notify in subscribers(CompleteKey)?.values() do
+        match notify
+        |  (let notify': CompleteNotify, let once: Bool) =>
+            notify'()
+            if once then
+              onces.push(i)
+            end
+        end
+        i = i + 1
+      end
+      if onces.size() > 0 then
+        _discardOnces(subscribers(FinishedKey)?, onces)
+      end
+      subscribers.clear()
+      end
 
   fun ref _subscribe(notify: Notify iso, once: Bool = false) =>
     let subscribers: Subscribers = _subscribers()
@@ -118,8 +139,8 @@ interface ReadablePullStream[R: Any #send] is Stream
           subscribers(DataKey[R])?
         | let notify': ReadableNotify tag =>
           subscribers(ReadableKey)?
-        | let notify': FinishedNotify tag =>
-          subscribers(FinishedKey)?
+        | let notify': CompleteNotify tag =>
+          subscribers(CompleteKey)?
       end
       match arr
         | let arr': Subscriptions =>

@@ -1,13 +1,5 @@
 use "Exception"
-interface DuplexPushStream[D: Any #send] is (WriteablePushStream[D] & ReadablePushStream[D])
-  be close() =>
-    closeRead()
-    closeWrite()
-
-  be closeRead()
-
-  be closeWrite()
-
+interface TransformPushStream[R: Any #send, W: Any #send] is (WriteablePushStream[W] & ReadablePushStream[R])
   fun ref _subscriberCount[A: Notify](): USize =>
     let subscribers: Subscribers = _subscribers()
     try
@@ -25,8 +17,8 @@ interface DuplexPushStream[D: Any #send] is (WriteablePushStream[D] & ReadablePu
         subscribers(PipeKey)?.size()
       elseif A <: UnpipeNotify then
         subscribers(UnpipeKey)?.size()
-      elseif A <: DataNotify[D] then
-        subscribers(DataKey[D])?.size()
+      elseif A <: DataNotify[R] then
+        subscribers(DataKey[R])?.size()
       elseif A <: ReadableNotify then
         subscribers(ReadableKey)?.size()
       elseif A <: CompleteNotify then
@@ -43,8 +35,8 @@ interface DuplexPushStream[D: Any #send] is (WriteablePushStream[D] & ReadablePu
     let notify': Notify = consume notify
 
     match notify'
-      | let notify'': DataNotify[D]  =>
-        if _subscriberCount[DataNotify[D]]() < 1 then
+      | let notify'': DataNotify[R]  =>
+        if _subscriberCount[DataNotify[R]]() < 1 then
           try
             subscribers(notify')?.push((notify', once))
           else
@@ -104,8 +96,8 @@ interface DuplexPushStream[D: Any #send] is (WriteablePushStream[D] & ReadablePu
           subscribers(PipeKey)?
         | let notify': UnpipeNotify tag =>
           subscribers(UnpipeKey)?
-        | let notify': DataNotify[D] tag =>
-          subscribers(DataKey[D])?
+        | let notify': DataNotify[R] tag =>
+          subscribers(DataKey[R])?
         | let notify': ReadableNotify tag =>
           subscribers(ReadableKey)?
         | let notify': CompleteNotify tag =>
@@ -126,3 +118,6 @@ interface DuplexPushStream[D: Any #send] is (WriteablePushStream[D] & ReadablePu
     else
       _notifyError(Exception("Failed to Unsubscribe"))
     end
+
+  be push() =>
+    None

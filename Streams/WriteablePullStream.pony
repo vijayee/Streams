@@ -124,5 +124,3 @@ interface WriteablePullStream[W: Any #send] is Stream
   be write(data: W)
 
   be pipe(stream: ReadablePullStream[W] tag)
-
-  

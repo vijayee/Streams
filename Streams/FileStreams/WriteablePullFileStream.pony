@@ -68,13 +68,13 @@ actor WriteablePullFileStream is WriteablePullStream[Array[U8] iso]
       pipeNotifiers.push(errorNotify')
       stream.subscribe(consume errorNotify)
 
-      let finishedNotify: FinishedNotify iso = object iso  is FinishedNotify
+      let completeNotify: CompleteNotify iso = object iso  is CompleteNotify
         let _stream: WriteablePullStream[Array[U8] iso] tag = this
         fun ref apply () => _stream.close()
       end
-      let finishedNotify': FinishedNotify tag = finishedNotify
-      pipeNotifiers.push(finishedNotify')
-      stream.subscribe(consume finishedNotify)
+      let completeNotify': CompleteNotify tag = completeNotify
+      pipeNotifiers.push(completeNotify')
+      stream.subscribe(consume completeNotify)
 
       let closeNotify: CloseNotify iso = object iso  is CloseNotify
         let _stream: WriteablePullStream[Array[U8] iso] tag = this

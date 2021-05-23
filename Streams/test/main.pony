@@ -1,7 +1,7 @@
 use fs = "files"
 use ".."
 use "../FileStreams"
-
+use "../HashStreams"
 use "ponytest"
 
 actor Main is TestList
@@ -14,6 +14,7 @@ actor Main is TestList
     test(PullFileStreamTest)
     test(DuplexPushFileStreamWriteTest)
     test(DuplexPushFileStreamReadTest)
+    test(PushTransformStreamTest)
 
 class iso PushFileStreamTest is UnitTest
   fun name(): String => "Testing Push File Stream"
@@ -44,12 +45,12 @@ class iso PushFileStreamTest is UnitTest
       end
       let ws: WriteablePushFileStream = WriteablePushFileStream(consume file)
       let rs: ReadablePushFileStream = ReadablePushFileStream(consume file2)
-      let readFinish: FinishedNotify iso = object iso is FinishedNotify
+      let readComplete: CompleteNotify iso = object iso is CompleteNotify
         let _t: TestHelper = t
         fun ref apply() =>
           t.complete_action("finish")
       end
-      rs.subscribe(consume readFinish, true)
+      rs.subscribe(consume readComplete, true)
       let writeClose: CloseNotify iso = object iso is CloseNotify
         let _t: TestHelper = t
         fun ref apply() =>
@@ -90,6 +91,8 @@ class iso PullFileStreamTest is UnitTest
   fun name(): String => "Testing Pull File Stream"
   fun apply(t: TestHelper) =>
     t.long_test(5000000000)
+    t.expect_action("finish")
+    t.expect_action("close")
     try
       let path: fs.FilePath = fs.FilePath(t.env.root as AmbientAuth, "./build/test/file3.txt")?
       let path2: fs.FilePath = fs.FilePath(t.env.root as AmbientAuth, "./Streams/test/file.txt")?
@@ -113,12 +116,12 @@ class iso PullFileStreamTest is UnitTest
       end
       let ws: WriteablePullFileStream = WriteablePullFileStream(consume file)
       let rs: ReadablePullFileStream = ReadablePullFileStream(consume file2)
-      let readFinish: FinishedNotify iso = object iso is FinishedNotify
+      let readComplete: CompleteNotify iso = object iso is CompleteNotify
         let _t: TestHelper = t
         fun ref apply() =>
           t.complete_action("finish")
       end
-      rs.subscribe(consume readFinish, true)
+      rs.subscribe(consume readComplete, true)
       let writeClose: CloseNotify iso = object iso is CloseNotify
         let _t: TestHelper = t
         fun ref apply() =>
@@ -255,12 +258,12 @@ class iso DuplexPushFileStreamReadTest is UnitTest
       end
       let ws: WriteablePushFileStream = WriteablePushFileStream(consume file)
       let ds: DuplexPushFileStream = DuplexPushFileStream(consume file2)
-      let readFinish: FinishedNotify iso = object iso is FinishedNotify
+      let readComplete: CompleteNotify iso = object iso is CompleteNotify
         let _t: TestHelper = t
         fun ref apply() =>
           t.complete_action("finish")
       end
-      ds.subscribe(consume readFinish, true)
+      ds.subscribe(consume readComplete, true)
       let writeClose: CloseNotify iso = object iso is CloseNotify
         let _t: TestHelper = t
         fun ref apply() =>
@@ -293,6 +296,81 @@ class iso DuplexPushFileStreamReadTest is UnitTest
       end
       ws.subscribe(consume writeClose, true)
       ds.pipe(ws)
+    else
+      None
+    end
+
+class iso PushTransformStreamTest is UnitTest
+  fun name(): String => "Testing Push Transform Stream"
+  fun apply(t: TestHelper) =>
+    t.long_test(5000000000)
+    t.expect_action("finish")
+    t.expect_action("close")
+    try
+      let path: fs.FilePath = fs.FilePath(t.env.root as AmbientAuth, "./build/test/file6.txt")?
+      let path2: fs.FilePath = fs.FilePath(t.env.root as AmbientAuth, "./Streams/test/file.txt")?
+
+      let file: fs.File iso = recover
+        match fs.CreateFile(path)
+          | let file: fs.File =>
+            file
+        else
+          error
+        end
+      end
+
+      let file2: fs.File iso = recover
+        match fs.CreateFile(path2)
+          | let file2: fs.File =>
+            file2
+        else
+          error
+        end
+      end
+      let ws: WriteablePushFileStream = WriteablePushFileStream(consume file)
+      let rs: ReadablePushFileStream = ReadablePushFileStream(consume file2)
+      let ht: HashTransform = HashTransform()
+
+      let readFinish: CompleteNotify iso = object iso is CompleteNotify
+        let _t: TestHelper = t
+        fun ref apply() =>
+          t.complete_action("finish")
+      end
+      rs.subscribe(consume readFinish, true)
+      let writeClose: CloseNotify iso = object iso is CloseNotify
+        let _t: TestHelper = t
+        fun ref apply() =>
+          try
+            let path: fs.FilePath = fs.FilePath(t.env.root as AmbientAuth, "./build/test/file6.txt")?
+            let path2: fs.FilePath = fs.FilePath(t.env.root as AmbientAuth, "./Streams/test/file.txt")?
+            let file: fs.File = match fs.CreateFile(path)
+              | let file: fs.File =>
+                file
+            else
+              error
+            end
+
+            let file2: fs.File = match fs.CreateFile(path2)
+                | let file2: fs.File =>
+                file2
+            else
+              error
+            end
+            let filetext: String = file.read_string(file.size())
+            let file2text: String = file2.read_string(file.size())
+            _t.assert_true(filetext != file2text)
+            _t.assert_true(filetext.size() == 32)
+            _t.complete_action("close")
+            _t.log("files are equal")
+            _t.complete(true)
+          else
+            _t.log("error comparing files")
+            _t.complete(false)
+          end
+      end
+      ws.subscribe(consume writeClose)
+      ht.pipe(ws)
+      rs.pipe(ht)
     else
       None
     end
