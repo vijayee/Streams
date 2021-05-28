@@ -1,10 +1,9 @@
-use "Base58"
 use "Blake2b"
 use "collections"
 use "Exception"
 use ".."
 
-actor HashTransform is TransformPushStream[Array[U8] iso, Array[U8] iso]
+actor HashPushTransform is TransformPushStream[Array[U8] iso, Array[U8] iso]
   var _readable: Bool = false
   var _isDestroyed: Bool = false
   let _hash: Blake2b

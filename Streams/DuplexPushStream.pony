@@ -31,6 +31,12 @@ interface DuplexPushStream[D: Any #send] is (WriteablePushStream[D] & ReadablePu
         subscribers(ReadableKey)?.size()
       elseif A <: CompleteNotify then
         subscribers(CompleteKey)?.size()
+      elseif A <: FinishedNotify then
+        subscribers(FinishedKey)?.size()
+      elseif A <: EmptyNotify then
+        subscribers(EmptyKey)?.size()
+      elseif A <: OverflowNotify then
+        subscribers(OverflowKey)?.size()
       else
         0
       end
@@ -110,6 +116,12 @@ interface DuplexPushStream[D: Any #send] is (WriteablePushStream[D] & ReadablePu
           subscribers(ReadableKey)?
         | let notify': CompleteNotify tag =>
           subscribers(CompleteKey)?
+        | let notify': FinishedNotify tag =>
+          subscribers(FinishedKey)?
+        | let notify': OverflowNotify tag =>
+          subscribers(OverflowKey)?
+        | let notify': EmptyNotify tag =>
+          subscribers(EmptyKey)?
       end
       match arr
       | let arr': Subscriptions =>

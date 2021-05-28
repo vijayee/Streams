@@ -1,27 +1,45 @@
-use "collections"
 use "Exception"
 use "files"
 use ".."
 
-actor WriteablePullFileStream is WriteablePullStream[Array[U8] iso]
+actor DuplexPullFileStream is DuplexPullStream[Array[U8] iso]
+  var _readable: Bool = true
   var _isDestroyed: Bool = false
   let _file: File
   let _subscribers': Subscribers
+  let _chunkSize: USize
   var _pipeNotifiers': (Array[Notify tag] iso | None) = None
   var _isPiped: Bool = false
 
-  new create(file: File iso) =>
+  new create(file: File iso, chunkSize: USize = 64000) =>
     _subscribers' = Subscribers(3)
     _file = consume file
+    _chunkSize = chunkSize
 
   fun ref _subscribers(): Subscribers=>
     _subscribers'
 
-  fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
-    _pipeNotifiers' = None
-
   fun _destroyed(): Bool =>
     _isDestroyed
+
+  fun readable(): Bool =>
+    _readable
+
+  be pull() =>
+    if _destroyed() then
+      _notifyError(Exception("Stream has been destroyed"))
+    else
+      let chunk: Array[U8] iso = if ((_file.size() - _file.position()) < _chunkSize) then
+        _file.read((_file.size() - _file.position()))
+      else
+        _file.read(_chunkSize)
+      end
+      _notifyData(consume chunk)
+      if (_file.size() == _file.position()) then
+        _notifyComplete()
+        close()
+      end
+    end
 
   be write(data: Array[U8] iso) =>
     if _destroyed() then
@@ -31,6 +49,55 @@ actor WriteablePullFileStream is WriteablePullStream[Array[U8] iso]
       if not ok then
         _notifyError(Exception("Failed to write data"))
       end
+    end
+
+  be read(size: (USize | None) = None, cb: {(Array[U8] iso)} val) =>
+    if _destroyed() then
+      _notifyError(Exception("Stream has been destroyed"))
+    else
+      let chunk: Array[U8] iso = match size
+        | let size': USize =>
+          if ((_file.size() - _file.position()) < size') then
+            _file.read((_file.size() - _file.position()))
+          else
+            _file.read(size')
+          end
+        else
+          _file.read(_file.size())
+      end
+      cb(consume chunk)
+      if (_file.size() == _file.position()) then
+        _notifyComplete()
+      end
+    end
+
+  fun ref _piped(): Bool =>
+    _isPiped
+
+  fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
+    _pipeNotifiers' = None
+
+  be piped(stream: WriteablePullStream[Array[U8] iso] tag) =>
+    if _destroyed() then
+      _notifyError(Exception("Stream has been destroyed"))
+    else
+      let errorNotify: ErrorNotify iso = object iso is ErrorNotify
+        let _stream: ReadablePullStream[Array[U8] iso] tag = this
+        fun ref apply(ex: Exception) => _stream.destroy(ex)
+      end
+      stream.subscribe(consume errorNotify)
+      let finishedNotify: FinishedNotify iso = object iso is FinishedNotify
+        let _stream: ReadablePullStream[Array[U8] iso] tag = this
+        fun ref apply() => _stream.close()
+      end
+      stream.subscribe(consume finishedNotify)
+      let closeNotify: CloseNotify iso = object iso  is CloseNotify
+        let _stream: ReadablePullStream[Array[U8] iso] tag = this
+        fun ref apply () => _stream.close()
+      end
+      let closeNotify': CloseNotify tag = closeNotify
+      stream.subscribe(consume closeNotify)
+      _notifyPiped()
     end
 
   be pipe(stream: ReadablePullStream[Array[U8] iso] tag) =>
@@ -101,8 +168,9 @@ actor WriteablePullFileStream is WriteablePullStream[Array[U8] iso]
     _file.dispose()
     let subscribers: Subscribers = _subscribers()
     subscribers.clear()
+    _pipeNotifiers' = None
 
-  be close() =>
+  fun ref _close() =>
     if not _destroyed() then
       _isDestroyed = true
       _file.dispose()
@@ -112,3 +180,12 @@ actor WriteablePullFileStream is WriteablePullStream[Array[U8] iso]
       _pipeNotifiers' = None
       _isPiped = false
     end
+
+  be close() =>
+    _close()
+
+  be closeRead() =>
+    _close()
+
+  be closeWrite() =>
+    _close()

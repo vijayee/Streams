@@ -1,5 +1,5 @@
 use "Exception"
-interface TransformPushStream[R: Any #send, W: Any #send] is (WriteablePushStream[W] & ReadablePushStream[R])
+interface TransformPullStream[R: Any #send, W: Any #send] is (WriteablePullStream[W] & ReadablePullStream[R])
   fun ref _subscriberCount[A: Notify](): USize =>
     let subscribers: Subscribers = _subscribers()
     try
@@ -108,12 +108,12 @@ interface TransformPushStream[R: Any #send, W: Any #send] is (WriteablePushStrea
           subscribers(ReadableKey)?
         | let notify': CompleteNotify tag =>
           subscribers(CompleteKey)?
+        | let notify': FinishedNotify tag =>
+          subscribers(FinishedKey)?
         | let notify': EmptyNotify tag =>
           subscribers(EmptyKey)?
         | let notify': OverflowNotify tag =>
           subscribers(OverflowKey)?
-        | let notify': FinishedNotify tag =>
-          subscribers(FinishedKey)?
       end
       match arr
       | let arr': Subscriptions =>

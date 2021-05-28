@@ -171,6 +171,7 @@ actor DuplexPushFileStream is DuplexPushStream[Array[U8] iso]
       let subscribers: Subscribers = _subscribers()
       subscribers.clear()
       _pipeNotifiers' = None
+      _isPiped = false
     end
 
   be close() =>
