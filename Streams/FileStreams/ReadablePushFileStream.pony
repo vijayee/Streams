@@ -49,7 +49,7 @@ actor ReadablePushFileStream is ReadablePushStream[Array[U8] iso]
       end
     end
 
-  be read(size: (USize | None) = None, cb: {(Array[U8] iso)} val) =>
+  be read(cb: {(Array[U8] iso)} val, size: (USize | None) = None) =>
     if _destroyed() then
       _notifyError(Exception("Stream has been destroyed"))
     else

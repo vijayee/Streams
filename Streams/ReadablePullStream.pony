@@ -188,7 +188,7 @@ interface ReadablePullStream[R: Any #send] is Stream
 
   be pull()
 
-  be read(size:(USize | None) = None, cb: {(R)} val)
+  be read(cb: {(R)} val, size:(USize | None) = None)
 
   be piped(stream: WriteablePullStream[R] tag)
 

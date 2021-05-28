@@ -75,7 +75,7 @@ interface ReadablePushStream[R: Any #send] is Stream
 
   be push()
 
-  be read(size:(USize | None) = None, cb: {(R)} val)
+  be read(cb: {(R)} val, size:(USize | None) = None)
 
   fun ref _piped(): Bool
 
