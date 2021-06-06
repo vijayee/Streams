@@ -220,7 +220,9 @@ interface ReadablePushStream[R: Any #send] is Stream
           arr.push((notify', once))
           subscribers(notify') =  arr
         end
-        _notifyReadable()
+        if readable() then
+          notify''()
+        end
       else
         try
           subscribers(notify')?.push((notify', once))
