@@ -3,7 +3,7 @@
     "Streams"
   ],
   "info": {
-    "description": "Library for bringing nodejs style stream functionality to Pony",
+    "description": "Library for bringing nodejs style streams functionality to Pony",
     "homepage": "https://github.com/vijayee/Streams",
     "license": "GPLv3",
     "version": "0.0.1",
