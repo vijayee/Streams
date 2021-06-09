@@ -1,0 +1,22 @@
+{
+  "packages": [
+    "Streams"
+  ],
+  "info": {
+    "description": "Library for bringing nodejs style stream functionality to Pony",
+    "homepage": "https://github.com/vijayee/Streams",
+    "license": "GPLv3",
+    "version": "0.0.1",
+    "name": "Streams"
+  },
+  "deps": [
+    {
+      "locator": "github.com/vijayee/Exception.git",
+      "version": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Blake2b.git",
+      "version": "0.0.1"
+    }
+  ]
+}
