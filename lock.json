@@ -1,0 +1,12 @@
+{
+  "locks": [
+    {
+      "locator": "github.com/vijayee/Blake2b.git",
+      "revision": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Exception.git",
+      "revision": "0.0.1"
+    }
+  ]
+}

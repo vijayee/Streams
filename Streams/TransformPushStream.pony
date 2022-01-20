@@ -36,6 +36,9 @@ interface TransformPushStream[R: Any #send, W: Any #send] is (WriteablePushStrea
       0
     end
 
+  fun ref _autoPush(): Bool =>
+    false
+
   fun ref _subscribe(notify: Notify iso, once: Bool = false) =>
     let subscribers: Subscribers = _subscribers()
     let notify': Notify = consume notify

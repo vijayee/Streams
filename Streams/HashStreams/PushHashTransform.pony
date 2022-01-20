@@ -10,6 +10,7 @@ actor HashPushTransform is TransformPushStream[Array[U8] iso, Array[U8] iso]
   let _subscribers': Subscribers
   var _pipeNotifiers': (Array[Notify tag] iso | None) = None
   var _isPiped: Bool = false
+  
   new create(digestSize: USize = 32) =>
     _subscribers' = Subscribers(3)
     _hash = Blake2b(digestSize)

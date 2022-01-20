@@ -8,6 +8,8 @@ interface DuplexPushStream[D: Any #send] is (WriteablePushStream[D] & ReadablePu
 
   be closeWrite()
 
+  fun ref _autoPush(): Bool=>
+    false
   fun ref _subscriberCount[A: Notify](): USize =>
     let subscribers: Subscribers = _subscribers()
     try

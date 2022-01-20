@@ -79,6 +79,8 @@ interface ReadablePushStream[R: Any #send] is Stream
 
   fun ref _piped(): Bool
 
+  fun ref _autoPush(): Bool
+
   fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None)
 
   be pipe(stream: WriteablePushStream[R] tag)
@@ -196,6 +198,9 @@ interface ReadablePushStream[R: Any #send] is Stream
             let arr: Subscriptions = Subscriptions(10)
             arr.push((notify', once))
             subscribers(notify') =  arr
+          end
+          if (not _piped()) and _autoPush() then
+            push()
           end
         else
           _notifyError(Exception("Multiple Data Subscribers"))

@@ -10,6 +10,7 @@ actor ReadablePushFileStream is ReadablePushStream[Array[U8] iso]
   let _chunkSize: USize
   var _pipeNotifiers': (Array[Notify tag] iso | None) = None
   var _isPiped: Bool = false
+  let _auto: Bool = true
 
   new create(file: File iso, chunkSize: USize = 64000) =>
     _subscribers' = Subscribers(3)
@@ -27,6 +28,9 @@ actor ReadablePushFileStream is ReadablePushStream[Array[U8] iso]
 
   fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
     _pipeNotifiers' = None
+
+  fun ref _autoPush(): Bool =>
+    _auto
 
   fun ref _subscribers() : Subscribers =>
     _subscribers'
