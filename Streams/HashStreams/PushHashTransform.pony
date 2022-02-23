@@ -10,29 +10,29 @@ actor HashPushTransform is TransformPushStream[Array[U8] iso, Array[U8] iso]
   let _subscribers': Subscribers
   var _pipeNotifiers': (Array[Notify tag] iso | None) = None
   var _isPiped: Bool = false
-  
+
   new create(digestSize: USize = 32) =>
     _subscribers' = Subscribers(3)
     _hash = Blake2b(digestSize)
 
-  fun ref _subscribers(): Subscribers=>
+  fun ref subscribers(): Subscribers=>
     _subscribers'
 
-  fun _destroyed(): Bool =>
+  fun destroyed(): Bool =>
     _isDestroyed
 
   fun readable(): Bool =>
     _readable
 
-  fun ref _piped(): Bool =>
+  fun ref isPiped(): Bool =>
     _isPiped
 
-  fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
+  fun ref pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
     _pipeNotifiers' = None
 
   be piped(stream: ReadablePushStream[Array[U8] iso] tag) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let dataNotify: DataNotify[Array[U8] iso] iso = object iso is DataNotify[Array[U8] iso]
         let _stream: TransformPushStream[Array[U8] iso, Array[U8] iso] tag = this
@@ -57,18 +57,18 @@ actor HashPushTransform is TransformPushStream[Array[U8] iso, Array[U8] iso]
       end
       let closeNotify': CloseNotify tag = closeNotify
       stream.subscribe(consume closeNotify)
-      _notifyPiped()
+      notifyPiped()
     end
 
   be pipe(stream: WriteablePushStream[Array[U8] iso] tag) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
-      let pipeNotifiers: Array[Notify tag] iso = try
-         _pipeNotifiers() as Array[Notify tag] iso^
+      let pipeNotifiers': Array[Notify tag] iso = try
+         pipeNotifiers() as Array[Notify tag] iso^
       else
-        let pipeNotifiers' = recover Array[Notify tag] end
-        consume pipeNotifiers'
+        let pipeNotifiers'' = recover Array[Notify tag] end
+        consume pipeNotifiers''
       end
 
       let errorNotify: ErrorNotify iso = object iso  is ErrorNotify
@@ -76,51 +76,51 @@ actor HashPushTransform is TransformPushStream[Array[U8] iso, Array[U8] iso]
         fun ref apply (ex: Exception) => _stream.destroy(ex)
       end
       let errorNotify': ErrorNotify tag = errorNotify
-      pipeNotifiers.push(errorNotify')
+      pipeNotifiers'.push(errorNotify')
       stream.subscribe(consume errorNotify)
 
-      _pipeNotifiers' = consume pipeNotifiers
+      _pipeNotifiers' = consume pipeNotifiers'
       stream.piped(this)
       _isPiped = true
-      _notifyPipe()
+      notifyPipe()
     end
 
   be push() =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let data: Array[U8] iso = _hash.digest()
-      _notifyData(consume data)
-      _notifyComplete()
-      _close()
+      notifyData(consume data)
+      notifyComplete()
+      close()
     end
 
   be write(data: Array[U8] iso) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       _hash.update(consume data)
       if not _readable then
         _readable = true
-        _notifyReadable()
+        notifyReadable()
       end
     end
 
   be read(cb: {(Array[U8] iso)} val, size: (USize | None) = None) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let data: Array[U8] iso = _hash.digest()
       cb(consume data)
-      _notifyComplete()
+      notifyComplete()
     end
 
   fun ref _close() =>
-    if not _destroyed() then
+    if not destroyed() then
       _isDestroyed = true
-      _notifyClose()
-      let subscribers: Subscribers = _subscribers()
-      subscribers.clear()
+      notifyClose()
+      let subscribers': Subscribers = subscribers()
+      subscribers'.clear()
       _pipeNotifiers' = None
     end
 

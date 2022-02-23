@@ -2,13 +2,13 @@ use "Exception"
 interface ReadablePushStream[R: Any #send] is Stream
   fun readable(): Bool
 
-  fun ref _notifyReadable() =>
+  fun ref notifyReadable() =>
     if readable() then
       try
-        let subscribers: Subscribers = _subscribers()
-        let onces = Array[USize](subscribers.size())
+        let subscribers': Subscribers = subscribers()
+        let onces = Array[USize](subscribers'.size())
         var i: USize = 0
-        for notify in subscribers(ReadableKey)?.values() do
+        for notify in subscribers'(ReadableKey)?.values() do
           match notify
           |  (let notify': ReadableNotify, let once: Bool) =>
               notify'()
@@ -19,19 +19,19 @@ interface ReadablePushStream[R: Any #send] is Stream
           i = i + 1
         end
         if onces.size() > 0 then
-          _discardOnces(subscribers(ReadableKey)?, onces)
+          discardOnces(subscribers'(ReadableKey)?, onces)
         end
       end
     end
 
-  fun ref _notifyData(data: R) =>
+  fun ref notifyData(data: R) =>
     try
-      let subscribers: Subscribers  = _subscribers()
+      let subscribers': Subscribers  = subscribers()
       var notify'': (DataNotify[R] | None) =  None
-      let onces = Array[USize](subscribers.size())
+      let onces = Array[USize](subscribers'.size())
 
       var i: USize = 0
-      for notify in subscribers(DataKey[R])?.values() do
+      for notify in subscribers'(DataKey[R])?.values() do
         match notify
         |  (let notify': DataNotify[R], let once: Bool) =>
             notify'' = notify'
@@ -48,16 +48,16 @@ interface ReadablePushStream[R: Any #send] is Stream
         notify'''(consume data)
       end
       if onces.size() > 0 then
-        _discardOnces(subscribers(DataKey[R])?,onces)
+        discardOnces(subscribers'(DataKey[R])?,onces)
       end
     end
 
-  fun ref _notifyComplete() =>
+  fun ref notifyComplete() =>
     try
-      let subscribers: Subscribers = _subscribers()
-      let onces = Array[USize](subscribers.size())
+      let subscribers': Subscribers = subscribers()
+      let onces = Array[USize](subscribers'.size())
       var i: USize = 0
-      for notify in subscribers(CompleteKey)?.values() do
+      for notify in subscribers'(CompleteKey)?.values() do
         match notify
         |  (let notify': CompleteNotify, let once: Bool) =>
             notify'()
@@ -68,29 +68,28 @@ interface ReadablePushStream[R: Any #send] is Stream
         i = i + 1
       end
       if onces.size() > 0 then
-        _discardOnces(subscribers(FinishedKey)?, onces)
+        discardOnces(subscribers'(FinishedKey)?, onces)
       end
-      subscribers.clear()
-      end
+    end
 
   be push()
 
   be read(cb: {(R)} val, size:(USize | None) = None)
 
-  fun ref _piped(): Bool
+  fun ref isPiped(): Bool
 
-  fun ref _autoPush(): Bool
+  fun ref autoPush(): Bool
 
-  fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None)
+  fun ref pipeNotifiers(): (Array[Notify tag] iso^ | None)
 
   be pipe(stream: WriteablePushStream[R] tag)
 
-  fun ref _notifyPipe() =>
+  fun ref notifyPipe() =>
     try
-      let subscribers: Subscribers = _subscribers()
-      let onces = Array[USize](subscribers.size())
+      let subscribers': Subscribers = subscribers()
+      let onces = Array[USize](subscribers'.size())
       var i: USize = 0
-      for notify in subscribers(PipeKey)?.values() do
+      for notify in subscribers'(PipeKey)?.values() do
         match notify
         |  (let notify': PipeNotify, let once: Bool) =>
             notify'()
@@ -101,16 +100,16 @@ interface ReadablePushStream[R: Any #send] is Stream
         i = i + 1
       end
       if onces.size() > 0 then
-        _discardOnces(subscribers(PipeKey)?, onces)
+        discardOnces(subscribers'(PipeKey)?, onces)
       end
     end
 
-  fun ref _notifyEmpty() =>
+  fun ref notifyEmpty() =>
     try
-      let subscribers: Subscribers = _subscribers()
-      let onces = Array[USize](subscribers.size())
+      let subscribers': Subscribers = subscribers()
+      let onces = Array[USize](subscribers'.size())
       var i: USize = 0
-      for notify in subscribers(EmptyKey)?.values() do
+      for notify in subscribers'(EmptyKey)?.values() do
         match notify
         |  (let notify': EmptyNotify, let once: Bool) =>
             notify'()
@@ -121,18 +120,18 @@ interface ReadablePushStream[R: Any #send] is Stream
         i = i + 1
       end
       if onces.size() > 0 then
-        _discardOnces(subscribers(EmptyKey)?, onces)
+        discardOnces(subscribers'(EmptyKey)?, onces)
       end
     end
 
-  fun ref _notifyUnpipe() =>
+  fun ref notifyUnpipe() =>
     try
-      let subscribers: Subscribers = _subscribers()
-      let onces = Array[USize](subscribers.size())
-      var notifiers: Array[Notify tag] iso = _pipeNotifiers() as Array[Notify tag] iso^
+      let subscribers': Subscribers = subscribers()
+      let onces = Array[USize](subscribers'.size())
+      var notifiers: Array[Notify tag] iso = pipeNotifiers() as Array[Notify tag] iso^
       var notify'': (UnpipeNotify | None) = None
       var i: USize = 0
-      for notify in subscribers(UnpipeKey)?.values() do
+      for notify in subscribers'(UnpipeKey)?.values() do
         match notify
           |  (let notify': UnpipeNotify, let once: Bool) =>
             notify'' = notify'
@@ -148,36 +147,36 @@ interface ReadablePushStream[R: Any #send] is Stream
           notify'''(consume notifiers)
       end
       if onces.size() > 0 then
-        _discardOnces(subscribers(UnpipeKey)?, onces)
+        discardOnces(subscribers'(UnpipeKey)?, onces)
       end
     end
 
   be unpipe() =>
-    if _piped() then
-      _notifyUnpipe()
+    if isPiped() then
+      notifyUnpipe()
     end
-    let subscribers: Subscribers = _subscribers()
-    subscribers.clear()
+    let subscribers': Subscribers = subscribers()
+    subscribers'.clear()
 
-  fun ref _subscriberCount[A: Notify](): USize =>
-   let subscribers: Subscribers = _subscribers()
+  fun ref subscriberCount[A: Notify](): USize =>
+   let subscribers': Subscribers = subscribers()
    try
      iftype A <: ThrottledNotify then
-       subscribers(ThrottledKey)?.size()
+       subscribers'(ThrottledKey)?.size()
      elseif A <: UnthrottledNotify then
-       subscribers(ThrottledKey)?.size()
+       subscribers'(ThrottledKey)?.size()
      elseif A <: ErrorNotify then
-       subscribers(ErrorKey)?.size()
+       subscribers'(ErrorKey)?.size()
      elseif A <: PipeNotify then
-       subscribers(PipeKey)?.size()
+       subscribers'(PipeKey)?.size()
      elseif A <: UnpipeNotify then
-       subscribers(UnpipeKey)?.size()
+       subscribers'(UnpipeKey)?.size()
      elseif A <: DataNotify[R] then
-       subscribers(DataKey[R])?.size()
+       subscribers'(DataKey[R])?.size()
      elseif A <: ReadableNotify then
-       subscribers(ReadableKey)?.size()
+       subscribers'(ReadableKey)?.size()
      elseif A <: CompleteNotify then
-       subscribers(CompleteKey)?.size()
+       subscribers'(CompleteKey)?.size()
      else
        0
      end
@@ -185,79 +184,79 @@ interface ReadablePushStream[R: Any #send] is Stream
      0
    end
 
-  fun ref _subscribe(notify: Notify iso, once: Bool = false) =>
-    let subscribers: Subscribers = _subscribers()
+  fun ref subscribeInternal(notify: Notify iso, once: Bool = false) =>
+    let subscribers': Subscribers = subscribers()
     let notify': Notify = consume notify
 
     match notify'
       | let notify'': DataNotify[R]  =>
-        if _subscriberCount[DataNotify[R]]() < 1 then
+        if subscriberCount[DataNotify[R]]() < 1 then
           try
-            subscribers(notify')?.push((notify', once))
+            subscribers'(notify')?.push((notify', once))
           else
             let arr: Subscriptions = Subscriptions(10)
             arr.push((notify', once))
-            subscribers(notify') =  arr
+            subscribers'(notify') =  arr
           end
-          if (not _piped()) and _autoPush() then
+          if (not isPiped()) and autoPush() then
             push()
           end
         else
-          _notifyError(Exception("Multiple Data Subscribers"))
+          notifyError(Exception("Multiple Data Subscribers"))
         end
       | let notify'': UnpipeNotify =>
-        if _subscriberCount[UnpipeNotify]() < 1 then
+        if subscriberCount[UnpipeNotify]() < 1 then
           try
-            subscribers(notify')?.push((notify', once))
+            subscribers'(notify')?.push((notify', once))
           else
             let arr: Subscriptions = Subscriptions(10)
             arr.push((notify', once))
-            subscribers(notify') =  arr
+            subscribers'(notify') =  arr
           end
         else
-          _notifyError(Exception("Multiple Unpipe Subscribers"))
+          notifyError(Exception("Multiple Unpipe Subscribers"))
         end
       | let notify'': ReadableNotify =>
         try
-          subscribers(notify')?.push((notify', once))
+          subscribers'(notify')?.push((notify', once))
         else
           let arr: Subscriptions = Subscriptions(10)
           arr.push((notify', once))
-          subscribers(notify') =  arr
+          subscribers'(notify') =  arr
         end
         if readable() then
           notify''()
         end
       else
         try
-          subscribers(notify')?.push((notify', once))
+          subscribers'(notify')?.push((notify', once))
         else
           let arr: Subscriptions = Subscriptions(10)
           arr.push((notify', once))
-          subscribers(notify') =  arr
+          subscribers'(notify') =  arr
         end
     end
 
-  fun ref _unsubscribe(notify: Notify tag) =>
+  fun ref unsubscribeInternal(notify: Notify tag) =>
     try
-      let subscribers: Subscribers = _subscribers()
+      let subscribers': Subscribers = subscribers()
       let arr: (Subscriptions | None) = match notify
         | let notify': ThrottledNotify tag =>
-          subscribers(ThrottledKey)?
+          subscribers'(ThrottledKey)?
         | let notify': UnthrottledNotify tag =>
-          subscribers(ThrottledKey)?
+          subscribers'(ThrottledKey)?
         | let notify': ErrorNotify tag =>
-          subscribers(ErrorKey)?
+          subscribers'(ErrorKey)?
         | let notify': PipeNotify tag =>
-          subscribers(PipeKey)?
+          subscribers'(PipeKey)?
         | let notify': UnpipeNotify tag =>
-          subscribers(UnpipeKey)?
+          subscribers'(UnpipeKey)?
         | let notify': DataNotify[R] tag =>
-          subscribers(DataKey[R])?
+          subscribers'(DataKey[R])?
         | let notify': ReadableNotify tag =>
-          subscribers(ReadableKey)?
+          subscribers'(ReadableKey)?
         | let notify': CompleteNotify tag =>
-          subscribers(CompleteKey)?
+          subscribers'(CompleteKey)?
       end
       match arr
         | let arr': Subscriptions =>
@@ -272,5 +271,5 @@ interface ReadablePushStream[R: Any #send] is Stream
           end
       end
     else
-      _notifyError(Exception("Failed to Unsubscribe"))
+      notifyError(Exception("Failed to Unsubscribe"))
     end

@@ -18,31 +18,31 @@ actor ReadablePullFileStream is ReadablePullStream[Array[U8] iso]
   fun readable(): Bool =>
     _readable
 
-  fun _destroyed(): Bool =>
+  fun destroyed(): Bool =>
     _isDestroyed
 
-  fun ref _subscribers() : Subscribers =>
+  fun ref subscribers() : Subscribers =>
     _subscribers'
 
   be pull() =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let chunk: Array[U8] iso = if ((_file.size() - _file.position()) < _chunkSize) then
         _file.read((_file.size() - _file.position()))
       else
         _file.read(_chunkSize)
       end
-      _notifyData(consume chunk)
+      notifyData(consume chunk)
       if (_file.size() == _file.position()) then
-        _notifyComplete()
+        notifyComplete()
         close()
       end
     end
 
   be read(cb: {(Array[U8] iso)} val, size: (USize | None) = None) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let chunk: Array[U8] iso = match size
         | let size': USize =>
@@ -56,31 +56,31 @@ actor ReadablePullFileStream is ReadablePullStream[Array[U8] iso]
       end
       cb(consume chunk)
       if (_file.size() == _file.position()) then
-        _notifyComplete()
+        notifyComplete()
       end
     end
 
   be destroy(message: (String | Exception)) =>
     match message
       | let message' : String =>
-        _notifyError(Exception(message'))
+        notifyError(Exception(message'))
       | let message' : Exception =>
-        _notifyError(message')
+        notifyError(message')
     end
   _isDestroyed = true
 
   be close() =>
-    if not _destroyed() then
+    if not destroyed() then
       _isDestroyed = true
-      _notifyClose()
+      notifyClose()
       _file.dispose()
-      let subscribers: Subscribers = _subscribers()
-      subscribers.clear()
+      let subscribers': Subscribers = subscribers()
+      subscribers'.clear()
     end
 
   be piped(stream: WriteablePullStream[Array[U8] iso] tag) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let errorNotify: ErrorNotify iso = object iso is ErrorNotify
         let _stream: ReadablePullStream[Array[U8] iso] tag = this
@@ -98,5 +98,5 @@ actor ReadablePullFileStream is ReadablePullStream[Array[U8] iso]
       end
       let closeNotify': CloseNotify tag = closeNotify
       stream.subscribe(consume closeNotify)
-      _notifyPiped()
+      notifyPiped()
     end

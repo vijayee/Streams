@@ -8,35 +8,35 @@ interface DuplexPullStream[D: Any #send] is (WriteablePullStream[D] & ReadablePu
 
   be closeWrite()
 
-  fun ref _subscriberCount[A: Notify](): USize =>
-    let subscribers: Subscribers = _subscribers()
+  fun ref subscriberCount[A: Notify](): USize =>
+    let subscribers': Subscribers = subscribers()
     try
       iftype A <: ThrottledNotify then
-        subscribers(ThrottledKey)?.size()
+        subscribers'(ThrottledKey)?.size()
       elseif A <: UnthrottledNotify then
-        subscribers(ThrottledKey)?.size()
+        subscribers'(ThrottledKey)?.size()
       elseif A <: ErrorNotify then
-        subscribers(ErrorKey)?.size()
+        subscribers'(ErrorKey)?.size()
       elseif A <: PipedNotify then
-        subscribers(PipedKey)?.size()
+        subscribers'(PipedKey)?.size()
       elseif A <: UnpipedNotify then
-        subscribers(UnpipedKey)?.size()
+        subscribers'(UnpipedKey)?.size()
       elseif A <: PipeNotify then
-        subscribers(PipeKey)?.size()
+        subscribers'(PipeKey)?.size()
       elseif A <: UnpipeNotify then
-        subscribers(UnpipeKey)?.size()
+        subscribers'(UnpipeKey)?.size()
       elseif A <: DataNotify[D] then
-        subscribers(DataKey[D])?.size()
+        subscribers'(DataKey[D])?.size()
       elseif A <: ReadableNotify then
-        subscribers(ReadableKey)?.size()
+        subscribers'(ReadableKey)?.size()
       elseif A <: CompleteNotify then
-        subscribers(CompleteKey)?.size()
+        subscribers'(CompleteKey)?.size()
       elseif A <: FinishedNotify then
-        subscribers(FinishedKey)?.size()
+        subscribers'(FinishedKey)?.size()
       elseif A <: EmptyNotify then
-        subscribers(EmptyKey)?.size()
+        subscribers'(EmptyKey)?.size()
       elseif A <: OverflowNotify then
-        subscribers(OverflowKey)?.size()
+        subscribers'(OverflowKey)?.size()
       else
         0
       end
@@ -44,82 +44,82 @@ interface DuplexPullStream[D: Any #send] is (WriteablePullStream[D] & ReadablePu
       0
     end
 
-  fun ref _subscribe(notify: Notify iso, once: Bool = false) =>
-    let subscribers: Subscribers = _subscribers()
+  fun ref subscribeInternal(notify: Notify iso, once: Bool = false) =>
+    let subscribers': Subscribers = subscribers()
     let notify': Notify = consume notify
 
     match notify'
       | let notify'': DataNotify[D]  =>
-        if _subscriberCount[DataNotify[D]]() < 1 then
+        if subscriberCount[DataNotify[D]]() < 1 then
           try
-            subscribers(notify')?.push((notify', once))
+            subscribers'(notify')?.push((notify', once))
           else
             let arr: Subscriptions = Subscriptions(10)
             arr.push((notify', once))
-            subscribers(notify') =  arr
+            subscribers'(notify') =  arr
           end
         else
-          _notifyError(Exception("Multiple Data Subscribers"))
+          notifyError(Exception("Multiple Data Subscribers"))
         end
       | let notify'': UnpipeNotify =>
-        if _subscriberCount[UnpipeNotify]() < 1 then
+        if subscriberCount[UnpipeNotify]() < 1 then
           try
-            subscribers(notify')?.push((notify', once))
+            subscribers'(notify')?.push((notify', once))
           else
             let arr: Subscriptions = Subscriptions(10)
             arr.push((notify', once))
-            subscribers(notify') =  arr
+            subscribers'(notify') =  arr
           end
         else
-          _notifyError(Exception("Multiple Unpipe Subscribers"))
+          notifyError(Exception("Multiple Unpipe Subscribers"))
         end
       | let notify'': ReadableNotify =>
         try
-          subscribers(notify')?.push((notify', once))
+          subscribers'(notify')?.push((notify', once))
         else
           let arr: Subscriptions = Subscriptions(10)
           arr.push((notify', once))
-          subscribers(notify') =  arr
+          subscribers'(notify') =  arr
         end
-        _notifyReadable()
+        notifyReadable()
       else
         try
-          subscribers(notify')?.push((notify', once))
+          subscribers'(notify')?.push((notify', once))
         else
           let arr: Subscriptions = Subscriptions(10)
           arr.push((notify', once))
-          subscribers(notify') =  arr
+          subscribers'(notify') =  arr
         end
     end
 
-  fun ref _unsubscribe(notify: Notify tag) =>
+  fun ref unsubscribeInternal(notify: Notify tag) =>
     try
-      let subscribers: Subscribers = _subscribers()
+      let subscribers': Subscribers = subscribers()
       let arr: (Subscriptions | None) = match notify
         | let notify': ThrottledNotify tag =>
-          subscribers(ThrottledKey)?
+          subscribers'(ThrottledKey)?
         | let notify': UnthrottledNotify tag =>
-          subscribers(ThrottledKey)?
+          subscribers'(ThrottledKey)?
         | let notify': ErrorNotify tag =>
-          subscribers(ErrorKey)?
+          subscribers'(ErrorKey)?
         | let notifiers: PipedNotify tag =>
-          subscribers(PipedKey)?
+          subscribers'(PipedKey)?
         | let notifiers: UnpipedNotify tag =>
-          subscribers(UnpipedKey)?
+          subscribers'(UnpipedKey)?
         | let notify': PipeNotify tag =>
-          subscribers(PipeKey)?
+          subscribers'(PipeKey)?
         | let notify': UnpipeNotify tag =>
-          subscribers(UnpipeKey)?
+          subscribers'(UnpipeKey)?
         | let notify': DataNotify[D] tag =>
-          subscribers(DataKey[D])?
+          subscribers'(DataKey[D])?
         | let notify': ReadableNotify tag =>
-          subscribers(ReadableKey)?
+          subscribers'(ReadableKey)?
         | let notify': CompleteNotify tag =>
-          subscribers(CompleteKey)?
+          subscribers'(CompleteKey)?
         | let notify': FinishedNotify tag =>
-          subscribers(FinishedKey)?
+          subscribers'(FinishedKey)?
         | let notify': OverflowNotify tag =>
-          subscribers(OverflowKey)?
+          subscribers'(OverflowKey)?
       end
       match arr
       | let arr': Subscriptions =>
@@ -134,5 +134,5 @@ interface DuplexPullStream[D: Any #send] is (WriteablePullStream[D] & ReadablePu
         end
       end
     else
-      _notifyError(Exception("Failed to Unsubscribe"))
+      notifyError(Exception("Failed to Unsubscribe"))
     end
