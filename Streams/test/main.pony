@@ -2,7 +2,7 @@ use fs = "files"
 use ".."
 use "../FileStreams"
 use "../HashStreams"
-use "ponytest"
+use "pony_test"
 
 actor Main is TestList
   new create(env: Env) =>
@@ -26,8 +26,8 @@ class iso PushFileStreamTest is UnitTest
     t.expect_action("finish")
     t.expect_action("close")
     try
-      let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file2.txt")
-      let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+      let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file2.txt")
+      let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
 
       let file: fs.File iso = recover
         match fs.CreateFile(path)
@@ -58,8 +58,8 @@ class iso PushFileStreamTest is UnitTest
         let _t: TestHelper = t
         fun ref apply() =>
           try
-            let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file2.txt")
-            let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+            let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file2.txt")
+            let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
             let file: fs.File = match fs.CreateFile(path)
               | let file: fs.File =>
                 file
@@ -97,8 +97,8 @@ class iso PullFileStreamTest is UnitTest
     t.expect_action("finish")
     t.expect_action("close")
     try
-      let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file3.txt")
-      let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+      let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file3.txt")
+      let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
 
       let file: fs.File iso = recover
         match fs.CreateFile(path)
@@ -129,8 +129,8 @@ class iso PullFileStreamTest is UnitTest
         let _t: TestHelper = t
         fun ref apply() =>
           try
-            let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file3.txt")
-            let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+            let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file3.txt")
+            let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
             let file: fs.File = match fs.CreateFile(path)
               | let file: fs.File =>
                 file
@@ -168,8 +168,8 @@ class iso DuplexPushFileStreamWriteTest is UnitTest
     t.expect_action("finish")
     t.expect_action("close")
     try
-      let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file4.txt")
-      let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+      let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file4.txt")
+      let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
 
       let file: fs.File iso = recover
         match fs.CreateFile(path)
@@ -200,8 +200,8 @@ class iso DuplexPushFileStreamWriteTest is UnitTest
         let _t: TestHelper = t
         fun ref apply() =>
           try
-            let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file4.txt")
-            let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+            let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file4.txt")
+            let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
             let file: fs.File = match fs.CreateFile(path)
               | let file: fs.File =>
                 file
@@ -239,8 +239,8 @@ class iso DuplexPushFileStreamReadTest is UnitTest
     t.expect_action("finish")
     t.expect_action("close")
     try
-      let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file5.txt")
-      let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+      let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file5.txt")
+      let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
 
       let file: fs.File iso = recover
         match fs.CreateFile(path)
@@ -271,8 +271,8 @@ class iso DuplexPushFileStreamReadTest is UnitTest
         let _t: TestHelper = t
         fun ref apply() =>
           try
-            let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file5.txt")
-            let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+            let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file5.txt")
+            let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
             let file: fs.File = match fs.CreateFile(path)
               | let file: fs.File =>
                 file
@@ -310,8 +310,8 @@ class iso PushTransformStreamTest is UnitTest
     t.expect_action("finish")
     t.expect_action("close")
     try
-      let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file6.txt")
-      let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+      let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file6.txt")
+      let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
 
       let file: fs.File iso = recover
         match fs.CreateFile(path)
@@ -344,8 +344,8 @@ class iso PushTransformStreamTest is UnitTest
         let _t: TestHelper = t
         fun ref apply() =>
           try
-            let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file6.txt")
-            let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+            let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file6.txt")
+            let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
             let file: fs.File = match fs.CreateFile(path)
               | let file: fs.File =>
                 file
@@ -385,8 +385,8 @@ class iso DuplexPullFileStreamWriteTest is UnitTest
     t.expect_action("finish")
     t.expect_action("close")
     try
-      let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file7.txt")
-      let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+      let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file7.txt")
+      let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
 
       let file: fs.File iso = recover
         match fs.CreateFile(path)
@@ -417,8 +417,8 @@ class iso DuplexPullFileStreamWriteTest is UnitTest
         let _t: TestHelper = t
         fun ref apply() =>
           try
-            let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file7.txt")
-            let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+            let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file7.txt")
+            let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
             let file: fs.File = match fs.CreateFile(path)
               | let file: fs.File =>
                 file
@@ -455,8 +455,8 @@ class iso DuplexPullFileStreamReadTest is UnitTest
     t.expect_action("finish")
     t.expect_action("close")
     try
-      let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file8.txt")
-      let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+      let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file8.txt")
+      let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
 
       let file: fs.File iso = recover
         match fs.CreateFile(path)
@@ -487,8 +487,8 @@ class iso DuplexPullFileStreamReadTest is UnitTest
         let _t: TestHelper = t
         fun ref apply() =>
           try
-            let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file8.txt")
-            let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+            let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file8.txt")
+            let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
             let file: fs.File = match fs.CreateFile(path)
               | let file: fs.File =>
                 file
@@ -527,8 +527,8 @@ class iso PullTransformStreamTest is UnitTest
     t.expect_action("finish")
     t.expect_action("close")
     try
-      let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file9.txt")
-      let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+      let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file9.txt")
+      let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
 
       let file: fs.File iso = recover
         match fs.CreateFile(path)
@@ -561,8 +561,8 @@ class iso PullTransformStreamTest is UnitTest
         let _t: TestHelper = t
         fun ref apply() =>
           try
-            let path: fs.FilePath = fs.FilePath(t.env.root, "./build/test/file9.txt")
-            let path2: fs.FilePath = fs.FilePath(t.env.root, "./Streams/test/file.txt")
+            let path: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./build/test/file9.txt")
+            let path2: fs.FilePath = fs.FilePath(fs.FileAuth.create(t.env.root), "./Streams/test/file.txt")
             let file: fs.File = match fs.CreateFile(path)
               | let file: fs.File =>
                 file

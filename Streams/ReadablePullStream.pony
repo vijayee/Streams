@@ -245,4 +245,24 @@ interface ReadablePullStream[R: Any #send] is Stream
       end
     end
 
+  fun ref notifyOverflow() =>
+    try
+      let subscribers': Subscribers = subscribers()
+      let onces = Array[USize](subscribers'.size())
+      var i: USize = 0
+      for notify in subscribers'(OverflowKey)?.values() do
+        match notify
+        |  (let notify': OverflowNotify, let once: Bool) =>
+            notify'()
+            if once then
+              onces.push(i)
+            end
+        end
+        i = i + 1
+      end
+      if onces.size() > 0 then
+        discardOnces(subscribers'(OverflowKey)?, onces)
+      end
+    end
+
   be close()
