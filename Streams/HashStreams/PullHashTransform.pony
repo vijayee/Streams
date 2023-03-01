@@ -28,7 +28,7 @@ actor HashPullTransform is TransformPullStream[Array[U8] iso, Array[U8] iso]
     _readable
 
   fun ref _hasReaders(): Bool =>
-    subscriberCount[DataNotify[Array[U8] iso]]() > 0
+    subscriberCount(DataEvent[Array[U8] iso]) > 0
 
   fun ref _shouldPull(): Bool =>
       _isPiped and _hasReaders() and _hasBeenPulled
@@ -48,7 +48,7 @@ actor HashPullTransform is TransformPullStream[Array[U8] iso, Array[U8] iso]
 
     match notify'
       | let notify'': DataNotify[Array[U8] iso]  =>
-        if subscriberCount[DataNotify[Array[U8] iso]]() < 1 then
+        if subscriberCount(DataEvent[Array[U8] iso]) < 1 then
           try
             subscribers'(notify')?.push((notify', once))
           else
@@ -63,7 +63,7 @@ actor HashPullTransform is TransformPullStream[Array[U8] iso, Array[U8] iso]
           notifyError(Exception("Multiple Data Subscribers"))
         end
       | let notify'': UnpipeNotify =>
-        if subscriberCount[UnpipeNotify]() < 1 then
+        if subscriberCount(UnpipeEvent) < 1 then
           try
             subscribers'(notify')?.push((notify', once))
           else

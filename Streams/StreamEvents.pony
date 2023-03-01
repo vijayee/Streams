@@ -1,103 +1,103 @@
 use "Exception"
 use "collections"
 
-trait ThrottledNotify is Notify
+trait ThrottledNotify is VoidNotify
   fun ref apply()
   fun box hash(): USize =>
     1
 
-primitive ThrottledKey is ThrottledNotify
+primitive ThrottledEvent is ThrottledNotify
   fun ref apply() => None
 
-trait UnthrottledNotify is Notify
+trait UnthrottledNotify is VoidNotify
   fun ref apply()
   fun box hash(): USize =>
     2
 
- primitive UnthrottledKey is UnthrottledNotify
+ primitive UnthrottledEvent is UnthrottledNotify
    fun ref apply() => None
 
-trait ErrorNotify is Notify
-  fun ref apply(ex: Exception)
+trait ErrorNotify is PayloadNotify[Exception]
+  fun ref apply(data: Exception)
   fun box hash(): USize =>
     3
 
-primitive ErrorKey is ErrorNotify
+primitive ErrorEvent is ErrorNotify
    fun ref apply(ex: Exception) => None
 
-trait PipeNotify is Notify
+trait PipeNotify is VoidNotify
  fun ref apply()
  fun box hash(): USize =>
    4
 
-primitive PipeKey is PipeNotify
+primitive PipeEvent is PipeNotify
  fun ref apply() => None
 
-trait UnpipeNotify is Notify
-  fun ref apply(notifiers:Array[Notify tag] iso)
+trait UnpipeNotify is PayloadNotify[Array[Notify tag] iso]
+  fun ref apply(data: Array[Notify tag] iso)
   fun box hash(): USize =>
     5
 
-primitive UnpipeKey is UnpipeNotify
+primitive UnpipeEvent is UnpipeNotify
   fun ref apply(notifiers: Array[Notify tag] iso) => None
 
-trait NextNotify is Notify
+trait NextNotify is VoidNotify
   fun ref apply()
   fun box hash(): USize =>
     6
 
-primitive NextKey is NextNotify
+primitive NextEvent is NextNotify
  fun ref apply() => None
 
-trait PipedNotify is Notify
+trait PipedNotify is VoidNotify
   fun ref apply()
   fun box hash(): USize =>
     7
 
-primitive PipedKey is PipedNotify
+primitive PipedEvent is PipedNotify
   fun ref apply() => None
 
-trait UnpipedNotify is Notify
+trait UnpipedNotify is VoidNotify
   fun ref apply()
   fun box hash(): USize =>
     8
 
-primitive UnpipedKey is UnpipedNotify
+primitive UnpipedEvent is UnpipedNotify
   fun ref apply() => None
 
-trait DataNotify[R: Any #send] is Notify
+trait DataNotify[R: Any #send] is PayloadNotify[R]
   fun ref apply(data: R)
   fun box hash(): USize =>
     9
 
-primitive DataKey[R: Any #send] is DataNotify[R]
+primitive DataEvent[R: Any #send] is DataNotify[R]
   fun ref apply(data: R) => None
 
-trait ReadableNotify is Notify
+trait ReadableNotify is VoidNotify
   fun ref apply()
   fun box hash(): USize =>
     10
 
-primitive ReadableKey is ReadableNotify
+primitive ReadableEvent is ReadableNotify
   fun ref apply() => None
 
-trait FinishedNotify is Notify
+trait FinishedNotify is VoidNotify
   fun ref apply()
   fun box hash(): USize =>
     11
 
-primitive FinishedKey is FinishedNotify
+primitive FinishedEvent is FinishedNotify
   fun ref apply() => None
 
-trait CloseNotify is Notify
+trait CloseNotify is VoidNotify
   fun ref apply()
   fun box hash(): USize =>
     12
 
-primitive CloseKey is CloseNotify
+primitive CloseEvent is CloseNotify
   fun ref apply() => None
 
-trait EmptyNotify is Notify
+trait EmptyNotify is VoidNotify
   fun ref apply()
   fun box hash(): USize =>
     13
@@ -106,23 +106,23 @@ trait EmptyNotify is Notify
   fun box ne(that: box->Notify): Bool =>
    this.hash() != that.hash()
 
-primitive EmptyKey is EmptyNotify
+primitive EmptyEvent is EmptyNotify
   fun ref apply() => None
 
-trait OverflowNotify is Notify
+trait OverflowNotify is VoidNotify
   fun ref apply()
   fun box hash(): USize =>
     14
 
-primitive OverflowKey is OverflowNotify
+primitive OverflowEvent is OverflowNotify
   fun ref apply() => None
 
-trait CompleteNotify is Notify
+trait CompleteNotify is VoidNotify
   fun ref apply()
   fun box hash(): USize =>
     15
 
-primitive CompleteKey is CompleteNotify
+primitive CompleteEvent is CompleteNotify
   fun ref apply() => None
 
 trait Notify
@@ -132,5 +132,14 @@ trait Notify
   fun box ne(that: box->Notify): Bool =>
    this.hash() != that.hash()
 
+trait Void
+  fun ref apply()
+
+trait Payload[R: Any #send]
+   fun ref apply(data: R)
+
+
+type PayloadNotify[A: Any #send] is (Notify & Payload[A])
+type VoidNotify is (Notify & Void)
 type Subscriptions is Array[(Notify, Bool)]
 type Subscribers is Map[Notify, Subscriptions]

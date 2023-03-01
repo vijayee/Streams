@@ -3,44 +3,10 @@ interface WriteablePushStream[W: Any #send] is Stream
   be write(data: W)
 
   fun ref notifyPiped() =>
-    try
-      let subscribers': Subscribers = subscribers()
-      let onces = Array[USize](subscribers'.size())
-      var i: USize = 0
-      for notify in subscribers'(PipedKey)?.values() do
-        match notify
-        |  (let notify': PipedNotify, let once: Bool) =>
-            notify'()
-            if once then
-              onces.push(i)
-            end
-        end
-        i = i + 1
-      end
-      if onces.size() > 0 then
-        discardOnces(subscribers'(PipedKey)?, onces)
-      end
-    end
+    notify(PipedEvent)
 
   fun ref notifyUnpiped() =>
-    try
-      let subscribers': Subscribers = subscribers()
-      let onces = Array[USize](subscribers'.size())
-      var i: USize = 0
-      for notify in subscribers'(UnpipedKey)?.values() do
-        match notify
-        |  (let notify': UnpipedNotify, let once: Bool) =>
-            notify'()
-            if once then
-              onces.push(i)
-            end
-        end
-        i = i + 1
-      end
-      if onces.size() > 0 then
-        discardOnces(subscribers'(UnpipedKey)?, onces)
-      end
-    end
+    notify(UnpipedEvent)
 
   be piped(stream: ReadablePushStream[W] tag)
 
@@ -57,84 +23,47 @@ interface WriteablePushStream[W: Any #send] is Stream
     notifyUnpiped()
 
   fun ref notifyFinished() =>
-    try
-      let subscribers': Subscribers = subscribers()
-      let onces = Array[USize](subscribers'.size())
-      var i: USize = 0
-      for notify in subscribers'(FinishedKey)?.values() do
-        match notify
-        |  (let notify': FinishedNotify, let once: Bool) =>
-            notify'()
-            if once then
-              onces.push(i)
-            end
-        end
-        i = i + 1
-      end
-      if onces.size() > 0 then
-        discardOnces(subscribers'(FinishedKey)?, onces)
-      end
-    end
+    notify(FinishedEvent)
 
-  fun ref subscriberCount[A: Notify](): USize =>
-    let subscribers': Subscribers = subscribers()
-    try
-      iftype A <: ThrottledNotify then
-        subscribers'(ThrottledKey)?.size()
-      elseif A <: UnthrottledNotify then
-        subscribers'(ThrottledKey)?.size()
-      elseif A <: ErrorNotify then
-        subscribers'(ErrorKey)?.size()
-      elseif A <: PipedNotify then
-        subscribers'(PipedKey)?.size()
-      elseif A <: UnpipedNotify then
-        subscribers'(UnpipedKey)?.size()
-      else
-        0
-      end
-    else
-      0
-    end
-
-  fun ref subscribeInternal(notify: Notify iso, once: Bool = false) =>
+  fun ref subscribeInternal(notify': Notify iso, once: Bool = false) =>
    if destroyed() then
      notifyError(Exception("Stream has been destroyed"))
    else
      let subscribers': Subscribers = subscribers()
-     let notify': Notify = consume notify
+     let notify'': Notify = consume notify'
      try
-       subscribers'(notify')?.push((notify', once))
+       subscribers'(notify'')?.push((notify'', once))
      else
        let arr: Subscriptions = Subscriptions(10)
-       arr.push((notify', once))
-       subscribers'(notify') =  arr
+       arr.push((notify'', once))
+       subscribers'(notify'') =  arr
      end
    end
 
-  fun ref unsubscribeInternal(notify: Notify tag) =>
+  fun ref unsubscribeInternal(notify': Notify tag) =>
     try
       if destroyed() then
         notifyError(Exception("Stream has been destroyed"))
       else
         let subscribers': Subscribers  = subscribers()
-        let arr: (Subscriptions | None) = match notify
+        let arr: (Subscriptions | None) = match notify'
           | let notifiers: ThrottledNotify tag =>
-            subscribers'(ThrottledKey)?
+            subscribers'(ThrottledEvent)?
           | let notifiers: UnthrottledNotify tag =>
-            subscribers'(UnthrottledKey)?
+            subscribers'(UnthrottledEvent)?
           | let notifiers: ErrorNotify tag =>
-            subscribers'(ErrorKey)?
+            subscribers'(ErrorEvent)?
           | let notifiers: PipedNotify tag =>
-            subscribers'(PipedKey)?
+            subscribers'(PipedEvent)?
           | let notifiers: UnpipedNotify tag =>
-            subscribers'(UnpipedKey)?
+            subscribers'(UnpipedEvent)?
         end
         match arr
         | let arr': Subscriptions =>
           try
             var i: USize = 0
             while i < arr'.size() do
-              if arr'(i)?._1 is notify then
+              if arr'(i)?._1 is notify' then
                 arr'.delete(i)?
                 return
               else
