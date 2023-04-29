@@ -71,6 +71,9 @@ interface ReadablePushStream[R: Any #send] is Stream
               arr.push((notify', once))
               subscribers'(notify') =  arr
             end
+            if (not isPiped()) and autoPush() then
+              push()
+            end
           else
             notifyError(Exception("Multiple Data Subscribers"))
           end
