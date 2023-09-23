@@ -1,5 +1,5 @@
 use "Exception"
-interface TransformPushStream[R: Any #send, W: Any #send] is (WriteablePushStream[W] & ReadablePushStream[R])
+interface TransformPushStream[R: Any #send, W: Any #send] is (ReadablePushStream[R] & WriteablePushStream[W])
   fun ref autoPush(): Bool =>
     false
 
@@ -9,7 +9,7 @@ interface TransformPushStream[R: Any #send, W: Any #send] is (WriteablePushStrea
 
     match notify'
       | let notify'': DataNotify[R]  =>
-        if subscriberCount(DataEvent[R]) < 1 then
+        iftype R <: Any #share then
           try
             subscribers'(notify')?.push((notify', once))
           else
@@ -17,8 +17,24 @@ interface TransformPushStream[R: Any #send, W: Any #send] is (WriteablePushStrea
             arr.push((notify', once))
             subscribers'(notify') =  arr
           end
+          if (not isPiped()) and autoPush() then
+            push()
+          end
         else
-          notifyError(Exception("Multiple Data Subscribers"))
+          if subscriberCount(DataEvent[R]) < 1 then
+            try
+              subscribers'(notify')?.push((notify', once))
+            else
+              let arr: Subscriptions = Subscriptions(10)
+              arr.push((notify', once))
+              subscribers'(notify') =  arr
+            end
+            if (not isPiped()) and autoPush() then
+              push()
+            end
+          else
+            notifyError(Exception("Multiple Data Subscribers"))
+          end
         end
       | let notify'': UnpipeNotify =>
         if subscriberCount(UnpipeEvent) < 1 then

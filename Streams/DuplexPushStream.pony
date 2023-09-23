@@ -8,7 +8,7 @@ interface DuplexPushStream[D: Any #send] is (WriteablePushStream[D] & ReadablePu
 
   be closeWrite()
 
-  fun ref autoPush(): Bool=>
+  fun ref autoPush(): Bool =>
     false
 
   fun ref subscribeInternal(notify: Notify iso, once: Bool = false) =>
